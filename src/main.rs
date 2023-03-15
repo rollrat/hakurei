@@ -123,6 +123,12 @@ struct Article {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct ArticleX<'a> {
+    pub title: &'a str,
+    text: &'a str,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct ArticleClass<'a> {
     pub title: &'a str,
     pub classes: Vec<&'a str>,
@@ -159,6 +165,26 @@ fn extract_class(js: &Vec<Article>) {
     fs::write("article-with-classes.json", json_result).unwrap();
 }
 
+#[allow(dead_code)]
+fn create_title_index() {
+    let fs = fs::read_to_string("namuwiki_202103012.json").unwrap();
+    let re = Regex::new("\"title\":\"(.*?)\"").unwrap();
+
+    let mut result: HashMap<&str, Vec<usize>> = HashMap::new();
+
+    for cap in re.captures_iter(&fs) {
+        let title_range = cap.get(1).unwrap().range();
+
+        result.insert(
+            cap.get(1).unwrap().as_str(),
+            vec![title_range.start, title_range.len()],
+        );
+    }
+
+    let json_result = serde_json::to_string_pretty(&result).unwrap();
+    fs::write("title-index.json", json_result).unwrap();
+}
+
 fn load_dump() -> Vec<Article> {
     let raw = fs::read_to_string("namuwiki_202103012.json").unwrap();
 
@@ -166,8 +192,5 @@ fn load_dump() -> Vec<Article> {
 }
 
 fn main() {
-    let js = load_dump();
-    let result = find_by_class(&js, "일본 애니메이션/");
-
-    fs::write("animations.txt", result.join("\n")).unwrap();
+    create_title_index();
 }
