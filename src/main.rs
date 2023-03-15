@@ -3,8 +3,6 @@ use std::{
     collections::HashMap,
     fs,
     io::{Read, Seek, SeekFrom},
-    ops::Index,
-    slice::SliceIndex,
 };
 
 use regex::Regex;
