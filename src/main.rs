@@ -127,12 +127,6 @@ struct Article {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ArticleX<'a> {
-    pub title: &'a str,
-    text: &'a str,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
 struct ArticleClass<'a> {
     pub title: &'a str,
     pub classes: Vec<&'a str>,
@@ -218,7 +212,7 @@ impl TitleIndex {
         }
     }
 
-    fn get(&mut self, key: &str) -> Option<String> {
+    fn get(&mut self, key: &str) -> Option<Article> {
         if !self.map.contains_key(key) {
             return None;
         }
@@ -235,7 +229,9 @@ impl TitleIndex {
         let mut buf = vec![0; offset_end - offset_start];
         self.file.read(&mut buf).unwrap();
 
-        Some(String::from_utf8(buf).unwrap())
+        let raw = String::from_utf8(buf).unwrap();
+
+        Some(serde_json::from_str(&raw).unwrap())
     }
 }
 
@@ -248,5 +244,5 @@ fn load_dump() -> Vec<Article> {
 fn main() {
     let mut index = TitleIndex::load();
 
-    println!("{}", index.get("동방지령전").unwrap());
+    println!("{}", index.get("동방지령전").unwrap().text);
 }
