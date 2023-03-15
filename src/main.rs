@@ -1,5 +1,11 @@
 use serde::{Deserialize, Serialize};
-use std::{collections::HashMap, fs};
+use std::{
+    collections::HashMap,
+    fs,
+    io::{Read, Seek, SeekFrom},
+    ops::Index,
+    slice::SliceIndex,
+};
 
 use regex::Regex;
 
@@ -172,17 +178,67 @@ fn create_title_index() {
 
     let mut result: HashMap<&str, Vec<usize>> = HashMap::new();
 
+    let mut last_key = "";
+
+    let front_len = "\"{\"namespace\":.,\"title\":\"".len();
+
     for cap in re.captures_iter(&fs) {
         let title_range = cap.get(1).unwrap().range();
+        let current_item_start = title_range.start - front_len;
 
-        result.insert(
-            cap.get(1).unwrap().as_str(),
-            vec![title_range.start, title_range.len()],
-        );
+        if last_key != "" {
+            result
+                .get_mut(last_key)
+                .map(|val| val.push(current_item_start - 1));
+        }
+
+        last_key = cap.get(1).unwrap().as_str();
+
+        result.insert(cap.get(1).unwrap().as_str(), vec![current_item_start]);
     }
+
+    result.get_mut(last_key).map(|val| val.push(fs.len() - 1));
 
     let json_result = serde_json::to_string_pretty(&result).unwrap();
     fs::write("title-index.json", json_result).unwrap();
+}
+
+struct TitleIndex {
+    map: HashMap<String, Vec<usize>>,
+    file: fs::File,
+}
+
+impl TitleIndex {
+    fn load() -> Self {
+        let mut raw = fs::read_to_string("title-index.json").unwrap();
+
+        unsafe {
+            TitleIndex {
+                map: simd_json::from_str(&mut raw).unwrap(),
+                file: fs::File::open("namuwiki_202103012.json").unwrap(),
+            }
+        }
+    }
+
+    fn get(&mut self, key: &str) -> Option<String> {
+        if !self.map.contains_key(key) {
+            return None;
+        }
+
+        let index = &self.map[key];
+
+        let offset_start = index[0];
+        let offset_end = index[1];
+
+        self.file
+            .seek(SeekFrom::Start(offset_start as u64 + 1))
+            .unwrap();
+
+        let mut buf = vec![0; offset_end - offset_start];
+        self.file.read(&mut buf).unwrap();
+
+        Some(String::from_utf8(buf).unwrap())
+    }
 }
 
 fn load_dump() -> Vec<Article> {
@@ -192,5 +248,7 @@ fn load_dump() -> Vec<Article> {
 }
 
 fn main() {
-    create_title_index();
+    let mut index = TitleIndex::load();
+
+    println!("{}", index.get("동방지령전").unwrap());
 }
