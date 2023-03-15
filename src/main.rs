@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use serde_json::Map;
 use std::{collections::HashMap, fs};
 
 use regex::Regex;
@@ -51,7 +50,7 @@ fn save_classes_rank() {
 }
 
 #[allow(dead_code)]
-fn find_by_class_test() {
+fn find_by_class_test(what: &str) {
     let js = load_dump();
 
     let mut r: Vec<(&str, Vec<&str>)> = Vec::new();
@@ -59,16 +58,7 @@ fn find_by_class_test() {
     for x in &js {
         let class = x.classes();
 
-        // if x["title"].as_str().unwrap().contains(&"제로부터 시작하는") {
-        //     println!("{:#?}", x);
-        // }
-
-        // if class.contains(&"일본 애니메이션/목록") {
-        //     println!("{}", x["title"].as_str().unwrap());
-        // }
-
-        if class.iter().any(|x| x.starts_with("일본 애니메이션/")) {
-            // println!("{}", x["title"].as_str().unwrap());
+        if class.iter().any(|x| x.starts_with(what)) {
             r.push((&x.title, class));
         }
     }
@@ -76,6 +66,54 @@ fn find_by_class_test() {
     r.sort_by(|a, b| a.0.cmp(b.0));
 
     fs::write("t.json", format!("{:#?}", r)).unwrap();
+}
+
+#[allow(dead_code)]
+fn find_by_class<'a>(js: &'a Vec<Article>, what: &str) -> Vec<&'a str> {
+    let mut result: Vec<&str> = Vec::new();
+
+    for x in js {
+        let class = x.classes();
+
+        if class.iter().any(|x| x.starts_with(what)) {
+            result.push(&x.title);
+        }
+    }
+
+    result.sort_by(|a, b| a.cmp(b));
+
+    result
+}
+
+#[allow(dead_code)]
+fn group_by_class_test() {
+    let js = load_dump();
+
+    let mut hmap: HashMap<&str, Vec<&str>> = HashMap::new();
+
+    for x in &js {
+        let class = x.classes();
+
+        if class.iter().any(|x| x.starts_with("일본 애니메이션/")) {
+            class.iter().for_each(|y| {
+                hmap.entry(y).or_default().push(&x.title);
+            });
+        }
+    }
+
+    let mut result = hmap.iter().collect::<Vec<(&&str, &Vec<&str>)>>();
+
+    result.sort_by(|a, b| a.0.cmp(b.0));
+
+    for class in &mut result {
+        println!("{}", class.0);
+
+        let mut animations = class.1.clone();
+        animations.sort();
+        for animation in animations {
+            println!("{}", animation);
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -129,4 +167,7 @@ fn load_dump() -> Vec<Article> {
 
 fn main() {
     let js = load_dump();
+    let result = find_by_class(&js, "일본 애니메이션/");
+
+    fs::write("animations.txt", result.join("\n")).unwrap();
 }
