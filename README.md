@@ -2,6 +2,8 @@
 
 ## Namuwiki Parser
 
+At least 32gb of memory is required to use this feature.
+
 Dump download: https://mu-star.net/wikidb
 
 ### Extract Category
