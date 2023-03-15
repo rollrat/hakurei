@@ -122,7 +122,7 @@ fn extract_class(js: &Vec<Article>) {
 }
 
 fn load_dump() -> Vec<Article> {
-    let raw = fs::read_to_string("namuwiki_202103012.json").unwrap();
+    let raw = include_str!("../namuwiki_202103012.json");
 
     serde_json::from_str(&raw).unwrap()
 }
