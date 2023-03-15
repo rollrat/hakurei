@@ -1,26 +1,13 @@
 use std::fs;
 
-use simd_json::ValueAccess;
-
 fn main() {
-    unsafe {
-        let mut fs1 = fs::read_to_string("0.json").unwrap();
-        let mut fs2 = fs::read_to_string("1.json").unwrap();
-        let mut fs3 = fs::read_to_string("2.json").unwrap();
+    let fs = fs::read_to_string("namuwiki_202103012.json").unwrap();
+    let js: serde_json::Value = serde_json::from_str(&fs).unwrap();
 
-        let js1: simd_json::OwnedValue = simd_json::from_str(&mut fs1).unwrap();
-        let js2: simd_json::OwnedValue = simd_json::from_str(&mut fs2).unwrap();
-        let js3: simd_json::OwnedValue = simd_json::from_str(&mut fs3).unwrap();
-
-        println!(
-            "{}",
-            js1.as_array().unwrap().len()
-                + js2.as_array().unwrap().len()
-                + js3.as_array().unwrap().len()
-        );
-    }
+    println!("{:#?}", js.as_array().unwrap().get(0));
 }
 
+#[allow(dead_code)]
 fn split_json_file() {
     let fs = fs::read_to_string("namuwiki_202103012.json").unwrap();
     let json: serde_json::Value = serde_json::from_str(&fs).unwrap();
@@ -33,7 +20,7 @@ fn split_json_file() {
     let mut r3: Vec<&serde_json::Value> = Vec::new();
 
     for i in 0..length {
-        let x = match i % 3 {
+        match i % 3 {
             0 => &mut r1,
             1 => &mut r2,
             2 => &mut r3,
