@@ -250,7 +250,7 @@ impl TitleIndex {
         match self.get_no_redirect(key) {
             Some(x) => {
                 if x.is_redirect() {
-                    self.get_no_redirect(x.get_redirect())
+                    self.get(x.get_redirect())
                 } else {
                     Some(x)
                 }
