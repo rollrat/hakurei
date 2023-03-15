@@ -5,6 +5,12 @@ fn main() {
     let js: serde_json::Value = serde_json::from_str(&fs).unwrap();
 
     println!("{:#?}", js.as_array().unwrap().get(0));
+
+    for x in js.as_array().unwrap() {
+        if x["title"].as_str().unwrap().starts_with(&"환상향") {
+            println!("{:#?}", x);
+        }
+    }
 }
 
 #[allow(dead_code)]
