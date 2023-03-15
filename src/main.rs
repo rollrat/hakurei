@@ -1,3 +1,5 @@
+use serde::{Deserialize, Serialize};
+use serde_json::Map;
 use std::{collections::HashMap, fs};
 
 use regex::Regex;
@@ -32,7 +34,6 @@ fn split_json_file() {
 #[allow(dead_code)]
 fn save_classes_rank() {
     let js = load_dump();
-
     let mut hmap = HashMap::new();
 
     for x in &js {
@@ -49,46 +50,8 @@ fn save_classes_rank() {
     fs::write("r.json", format!("{:#?}", v)).unwrap();
 }
 
-#[derive(Debug)]
-struct Article {
-    pub title: String,
-    text: String,
-}
-
-impl Article {
-    fn from(value: &serde_json::Value) -> Self {
-        Article {
-            // todo optimizing
-            // to_owned may be copying processing
-            title: value["title"].as_str().unwrap().to_owned(),
-            text: value["text"].as_str().unwrap().to_owned(),
-        }
-    }
-
-    fn classes(&self) -> Vec<&str> {
-        let mut result = Vec::new();
-        let re = Regex::new(r"\[\[분류:(.*?)\]\]").unwrap();
-
-        for cap in re.captures_iter(&self.text) {
-            result.push(cap.get(1).map_or("", |m| m.as_str()));
-        }
-
-        result
-    }
-}
-
-fn load_dump<'a>() -> Vec<Article> {
-    let raw = fs::read_to_string("namuwiki_202103012.json").unwrap();
-    let s: serde_json::Value = serde_json::from_str(&raw).unwrap();
-
-    s.as_array()
-        .unwrap()
-        .iter()
-        .map(|x| Article::from(x))
-        .collect::<Vec<Article>>()
-}
-
-fn main() {
+#[allow(dead_code)]
+fn find_by_class_test() {
     let js = load_dump();
 
     let mut r: Vec<(&str, Vec<&str>)> = Vec::new();
@@ -113,4 +76,57 @@ fn main() {
     r.sort_by(|a, b| a.0.cmp(b.0));
 
     fs::write("t.json", format!("{:#?}", r)).unwrap();
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct Article {
+    pub title: String,
+    text: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ArticleClass<'a> {
+    pub title: &'a str,
+    pub classes: Vec<&'a str>,
+}
+
+impl Article {
+    fn classes(&self) -> Vec<&str> {
+        let mut result = Vec::new();
+        let re = Regex::new(r"\[\[분류:(.*?)\]\]").unwrap();
+
+        for cap in re.captures_iter(&self.text) {
+            result.push(cap.get(1).map_or("", |m| m.as_str()));
+        }
+
+        result
+    }
+
+    fn to_article_class(&self) -> ArticleClass {
+        ArticleClass {
+            title: &self.title,
+            classes: self.classes(),
+        }
+    }
+}
+
+#[allow(dead_code)]
+fn extract_class(js: &Vec<Article>) {
+    let article_classes = js
+        .iter()
+        .map(|x| x.to_article_class())
+        .collect::<Vec<ArticleClass>>();
+
+    let json_result = serde_json::to_string_pretty(&article_classes).unwrap();
+    fs::write("article-with-classes.json", json_result).unwrap();
+}
+
+fn load_dump() -> Vec<Article> {
+    let raw = fs::read_to_string("namuwiki_202103012.json").unwrap();
+
+    serde_json::from_str(&raw).unwrap()
+}
+
+fn main() {
+    let js = load_dump();
 }
