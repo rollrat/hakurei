@@ -1,7 +1,24 @@
 use std::fs;
 
+use simd_json::ValueAccess;
+
 fn main() {
-    split_json_file();
+    unsafe {
+        let mut fs1 = fs::read_to_string("0.json").unwrap();
+        let mut fs2 = fs::read_to_string("1.json").unwrap();
+        let mut fs3 = fs::read_to_string("2.json").unwrap();
+
+        let js1: simd_json::OwnedValue = simd_json::from_str(&mut fs1).unwrap();
+        let js2: simd_json::OwnedValue = simd_json::from_str(&mut fs2).unwrap();
+        let js3: simd_json::OwnedValue = simd_json::from_str(&mut fs3).unwrap();
+
+        println!(
+            "{}",
+            js1.as_array().unwrap().len()
+                + js2.as_array().unwrap().len()
+                + js3.as_array().unwrap().len()
+        );
+    }
 }
 
 fn split_json_file() {
