@@ -35,14 +35,14 @@ fn split_json_file() {
 }
 
 #[allow(dead_code)]
-fn save_classes_rank() {
+fn save_categories_rank() {
     let js = load_dump();
     let mut hmap = HashMap::new();
 
     for x in &js {
-        let class = x.classes();
+        let category = x.categories();
 
-        for c in class {
+        for c in category {
             *hmap.entry(c).or_insert(0) += 1;
         }
     }
@@ -54,16 +54,16 @@ fn save_classes_rank() {
 }
 
 #[allow(dead_code)]
-fn find_by_class_test(what: &str) {
+fn find_by_category_test(what: &str) {
     let js = load_dump();
 
     let mut r: Vec<(&str, Vec<&str>)> = Vec::new();
 
     for x in &js {
-        let class = x.classes();
+        let category = x.categories();
 
-        if class.iter().any(|x| x.starts_with(what)) {
-            r.push((&x.title, class));
+        if category.iter().any(|x| x.starts_with(what)) {
+            r.push((&x.title, category));
         }
     }
 
@@ -73,13 +73,13 @@ fn find_by_class_test(what: &str) {
 }
 
 #[allow(dead_code)]
-fn find_by_class<'a>(js: &'a Vec<Article>, what: &str) -> Vec<&'a str> {
+fn find_by_category<'a>(js: &'a Vec<Article>, what: &str) -> Vec<&'a str> {
     let mut result: Vec<&str> = Vec::new();
 
     for x in js {
-        let class = x.classes();
+        let category = x.categories();
 
-        if class.iter().any(|x| x.starts_with(what)) {
+        if category.iter().any(|x| x.starts_with(what)) {
             result.push(&x.title);
         }
     }
@@ -90,16 +90,16 @@ fn find_by_class<'a>(js: &'a Vec<Article>, what: &str) -> Vec<&'a str> {
 }
 
 #[allow(dead_code)]
-fn group_by_class_test() {
+fn group_by_category_test() {
     let js = load_dump();
 
     let mut hmap: HashMap<&str, Vec<&str>> = HashMap::new();
 
     for x in &js {
-        let class = x.classes();
+        let category = x.categories();
 
-        if class.iter().any(|x| x.starts_with("일본 애니메이션/")) {
-            class.iter().for_each(|y| {
+        if category.iter().any(|x| x.starts_with("일본 애니메이션/")) {
+            category.iter().for_each(|y| {
                 hmap.entry(y).or_default().push(&x.title);
             });
         }
@@ -109,10 +109,10 @@ fn group_by_class_test() {
 
     result.sort_by(|a, b| a.0.cmp(b.0));
 
-    for class in &mut result {
-        println!("{}", class.0);
+    for category in &mut result {
+        println!("{}", category.0);
 
-        let mut animations = class.1.clone();
+        let mut animations = category.1.clone();
         animations.sort();
         for animation in animations {
             println!("{}", animation);
@@ -127,13 +127,13 @@ struct Article {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ArticleClass<'a> {
+struct ArticleCategory<'a> {
     pub title: &'a str,
-    pub classes: Vec<&'a str>,
+    pub categories: Vec<&'a str>,
 }
 
 impl Article {
-    fn classes(&self) -> Vec<&str> {
+    fn categories(&self) -> Vec<&str> {
         let mut result = Vec::new();
         let re = Regex::new(r"\[\[분류:(.*?)\]\]").unwrap();
 
@@ -144,10 +144,10 @@ impl Article {
         result
     }
 
-    fn to_article_class(&self) -> ArticleClass {
-        ArticleClass {
+    fn to_article_category(&self) -> ArticleCategory {
+        ArticleCategory {
             title: &self.title,
-            classes: self.classes(),
+            categories: self.categories(),
         }
     }
 
@@ -161,14 +161,14 @@ impl Article {
 }
 
 #[allow(dead_code)]
-fn extract_class(js: &Vec<Article>) {
-    let article_classes = js
+fn extract_category(js: &Vec<Article>) {
+    let article_categories = js
         .iter()
-        .map(|x| x.to_article_class())
-        .collect::<Vec<ArticleClass>>();
+        .map(|x| x.to_article_category())
+        .collect::<Vec<ArticleCategory>>();
 
-    let json_result = serde_json::to_string_pretty(&article_classes).unwrap();
-    fs::write("article-with-classes.json", json_result).unwrap();
+    let json_result = serde_json::to_string_pretty(&article_categories).unwrap();
+    fs::write("article-with-categories.json", json_result).unwrap();
 }
 
 #[allow(dead_code)]
