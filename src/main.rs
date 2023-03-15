@@ -180,7 +180,7 @@ fn create_title_index() {
 
     let mut last_key = "";
 
-    let front_len = "\"{\"namespace\":.,\"title\":\"".len();
+    let front_len = "{\"namespace\":.,\"title\":\"".len();
 
     for cap in re.captures_iter(&fs) {
         let title_range = cap.get(1).unwrap().range();
@@ -189,7 +189,7 @@ fn create_title_index() {
         if last_key != "" {
             result
                 .get_mut(last_key)
-                .map(|val| val.push(current_item_start - 1));
+                .map(|val| val.push(current_item_start - 2));
         }
 
         last_key = cap.get(1).unwrap().as_str();
@@ -231,10 +231,10 @@ impl TitleIndex {
         let offset_end = index[1];
 
         self.file
-            .seek(SeekFrom::Start(offset_start as u64 + 1))
+            .seek(SeekFrom::Start(offset_start as u64))
             .unwrap();
 
-        let mut buf = vec![0; offset_end - offset_start];
+        let mut buf = vec![0; offset_end - offset_start + 1];
         self.file.read(&mut buf).unwrap();
 
         let raw = String::from_utf8(buf).unwrap();
