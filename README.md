@@ -1,5 +1,35 @@
 # hakurei
 
+Namuwiki Stream Pipeline Filter
+
+## Namuwiki Syncronizer & Stream
+
+## Namuwiki Search Engine
+
+- Search
+
+  - [ ] Title Search
+  - [ ] Title Fuzzy Search
+  - [ ] Body Search
+  - [ ] Body Fuzzy Search (ELK Like)
+  - [ ] Category Search
+
+- Extract
+
+  - [ ] Extract Outlink
+  - [ ] Extract Category
+
+- Stream Pipeline
+
+  - [ ] Map
+  - [ ] Filter
+  - [ ] Union
+  - [ ] Substract
+
+- Etc
+
+  - [ ] Wordcloud
+
 ## Namuwiki Parser
 
 At least 32gb of memory is required to use this feature.
