@@ -7,8 +7,8 @@ pub struct CategoryIndex {
 }
 
 impl CategoryIndex {
-    pub fn load() -> Result<Self, Box<dyn Error>> {
-        let mut raw = fs::read_to_string("article-with-categories.json")?;
+    pub fn load(index_path: &str) -> Result<Self, Box<dyn Error>> {
+        let mut raw = fs::read_to_string(index_path)?;
 
         unsafe {
             let js: Vec<ArticleCategory> = simd_json::from_str(&mut raw)?;

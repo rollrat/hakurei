@@ -13,13 +13,13 @@ pub struct TitleIndex {
 }
 
 impl TitleIndex {
-    pub fn load() -> Result<Self, Box<dyn Error>> {
-        let mut raw = fs::read_to_string("title-index.json")?;
+    pub fn load(dump_path: &str, index_path: &str) -> Result<Self, Box<dyn Error>> {
+        let mut raw = fs::read_to_string(index_path)?;
 
         unsafe {
             Ok(TitleIndex {
                 map: simd_json::from_str(&mut raw)?,
-                file: fs::File::open("namuwiki_202103012.json")?,
+                file: fs::File::open(dump_path)?,
             })
         }
     }
