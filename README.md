@@ -30,6 +30,22 @@ Namuwiki Stream Pipeline Filter
 
   - [ ] Wordcloud
 
+### Middle-end Data Type
+
+- Abstract
+
+  - Article `(Title, [Category], Text, [Contributor])`
+  - Category `(Name, [Article])`
+
+- Implementaion
+
+  - ArticleSet `({&Article})`
+  - ArticleArray `([&Article])`
+  - ArticleWithCountArray `([(&Article, Count)])`
+  - CategorySet `({&Category})`
+  - CategoryArray `([&Category])`
+  - CategoryWithCountArray `([(&Category, Count)])`
+
 ## Namuwiki Parser
 
 At least 32gb of memory is required to use this feature.
