@@ -260,6 +260,36 @@ impl TitleIndex {
     }
 }
 
+struct CategoryIndex {
+    map: HashMap<String, Vec<String>>,
+}
+
+impl CategoryIndex {
+    fn load() -> Self {
+        let mut raw = fs::read_to_string("article-with-categories.json").unwrap();
+
+        unsafe {
+            let js: Vec<ArticleCategory> = simd_json::from_str(&mut raw).unwrap();
+
+            CategoryIndex {
+                map: js
+                    .into_iter()
+                    .map(|x| {
+                        (
+                            x.title.to_owned(),
+                            x.categories.into_iter().map(|x| x.to_owned()).collect(),
+                        )
+                    })
+                    .collect(),
+            }
+        }
+    }
+
+    fn get(&self, key: &str) -> Option<&Vec<String>> {
+        self.map.get(key)
+    }
+}
+
 fn load_dump() -> Vec<Article> {
     let raw = fs::read_to_string("namuwiki_202103012.json").unwrap();
 
@@ -267,7 +297,14 @@ fn load_dump() -> Vec<Article> {
 }
 
 fn main() {
-    let mut index = TitleIndex::load();
+    let mut tindex = TitleIndex::load();
+    let cindex = CategoryIndex::load();
 
-    println!("{}", index.get("동방지령전").unwrap().text);
+    println!("{}", tindex.get("동방지령전").unwrap().text);
+    println!(
+        "{:#?}",
+        cindex
+            .get(&tindex.get("동방지령전").unwrap().title)
+            .unwrap()
+    );
 }
