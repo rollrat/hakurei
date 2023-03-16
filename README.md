@@ -46,6 +46,27 @@ Namuwiki Stream Pipeline Filter
   - CategoryArray `([&Category])`
   - CategoryWithCountArray `([(&Category, Count)])`
 
+### Description
+
+```
+S -> E
+E -> function_call
+   | E and E
+   | E or E
+   | ( E )
+   | e
+function_call -> function_name ( args )
+               | function_name:sub_name ( args )
+args -> E args_remain
+      | literal args_remain
+      | e
+args_remain -> , args
+            | e
+function_name -> \w+
+sub_name -> \w+
+literal -> "([^"\\]|\\.)*"
+```
+
 ## Namuwiki Parser
 
 At least 32gb of memory is required to use this feature.
