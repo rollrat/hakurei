@@ -69,6 +69,7 @@ name          -> function_name
                | function_name:sub_name
 
 args          -> const
+               | const, args
                | expr_and
                | expr_and, args
 
