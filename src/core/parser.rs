@@ -10,7 +10,7 @@ enum NodeType {
     FunctionExpression,
 }
 
-struct Tokernizer {
+struct Tokenizer {
     target: Vec<char>,
     ptr: usize,
 }
@@ -40,9 +40,9 @@ macro_rules! hashmap {
     }}
 }
 
-impl Tokernizer {
-    fn from<'a>(target: &'a str) -> Tokernizer {
-        Tokernizer {
+impl Tokenizer {
+    fn from<'a>(target: &'a str) -> Tokenizer {
+        Tokenizer {
             target: target.chars().collect::<Vec<char>>(),
             ptr: 0,
         }
@@ -183,10 +183,10 @@ impl Tokernizer {
 mod tests {
     use crate::core::parser::TokenType;
 
-    use super::Tokernizer;
+    use super::Tokenizer;
 
     fn token_type(target: &str) -> TokenType {
-        Tokernizer::from(target).next().token_type
+        Tokenizer::from(target).next().token_type
     }
 
     #[test]
@@ -199,7 +199,7 @@ mod tests {
 
     #[test]
     fn parse_test() {
-        let mut tok = Tokernizer::from("title:startswith(\"abcd\")");
+        let mut tok = Tokenizer::from("title:startswith(\"abcd\")");
         assert_eq!(tok.next().token_type, TokenType::Name);
         assert_eq!(tok.next().token_type, TokenType::BraceStart);
         assert_eq!(tok.next().token_type, TokenType::Const);
