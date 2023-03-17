@@ -49,27 +49,34 @@ Namuwiki Stream Pipeline Filter
 ### Description
 
 ```
-command -> expr
+command       -> expr_and
 
-expr -> func
-      | expr and expr
-      | expr or  expr
-      | e
+expr_and      -> expr_or expr_and
+expr_and_lr   -> && expr_or expr_and
+               | e
 
-func -> name ( )
-      | name ( args )
+expr_or       -> expr_case expr_or_lr
+expr_or_lr    -> || expr_case expr_or_lr
+               | e
 
-name -> function_name
-      | function_name:sub_name
+expr_case     -> ( expr )
+               | func
 
-args -> const
-      | expr
-      | expr, args
+func          -> name ( )
+               | name ( args )
 
-number -> [0-9]+
-string -> "([^\\"]|\\")*"
-const  -> number
-        | string
+name          -> function_name
+               | function_name:sub_name
+
+args          -> const
+               | expr
+               | expr, args
+
+function_name -> [_:a-zA-Z0-9$]*
+number        -> [0-9]+
+string        -> "([^\\"]|\\")*"
+const         -> number
+               | string
 ```
 
 ## Namuwiki Parser
