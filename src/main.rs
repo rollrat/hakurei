@@ -1,3 +1,4 @@
+pub mod core;
 pub mod index;
 pub mod loader;
 pub mod model;
