@@ -49,22 +49,27 @@ Namuwiki Stream Pipeline Filter
 ### Description
 
 ```
-S -> E
-E -> function_call
-   | E and E
-   | E or E
-   | ( E )
-   | e
-function_call -> function_name ( args )
-               | function_name:sub_name ( args )
-args -> E args_remain
-      | literal args_remain
+command -> expr
+
+expr -> func
+      | expr and expr
+      | expr or  expr
       | e
-args_remain -> , args
-            | e
-function_name -> \w+
-sub_name -> \w+
-literal -> "([^"\\]|\\.)*"
+
+func -> name ( )
+      | name ( args )
+
+name -> function_name
+      | function_name:sub_name
+
+args -> const
+      | expr
+      | expr, args
+
+number -> [0-9]+
+string -> "([^\\"]|\\")*"
+const  -> number
+        | string
 ```
 
 ## Namuwiki Parser
