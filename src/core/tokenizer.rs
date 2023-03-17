@@ -21,14 +21,6 @@ pub struct Token {
     pub content: Option<String>,
 }
 
-macro_rules! hashmap {
-    ($( $key: expr => $val: expr ),*) => {{
-         let mut map = ::std::collections::HashMap::new();
-         $( map.insert($key, $val); )*
-         map
-    }}
-}
-
 impl Tokenizer {
     pub fn from<'a>(target: &'a str) -> Tokenizer {
         Tokenizer {

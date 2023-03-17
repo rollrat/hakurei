@@ -1,12 +1,12 @@
-use std::{error::Error, process::Child, slice::SliceIndex};
+use std::error::Error;
 
 use super::tokenizer::{TokenType, Tokenizer};
 
-struct Parser {
+pub struct Parser {
     tokenizer: Tokenizer,
 }
 
-enum NodeType {
+pub enum NodeType {
     Ellipsion,
     CommandExpression,
     ExpressionAnd,
@@ -18,50 +18,50 @@ enum NodeType {
     Arguments,
 }
 
-trait Node {
+pub trait Node {
     fn get_type(&self) -> NodeType;
 }
 
-struct EllipsionNode {}
+pub struct EllipsionNode {}
 
-struct CommandExpressionNode {
-    expr_and: Box<ExpressionAndNode>,
+pub struct CommandExpressionNode {
+    pub expr_and: Box<ExpressionAndNode>,
 }
 
-struct ExpressionAndNode {
-    expr_or: Box<ExpressionOrNode>,
-    expr_and: Box<dyn Node>,
+pub struct ExpressionAndNode {
+    pub expr_or: Box<ExpressionOrNode>,
+    pub expr_and: Box<dyn Node>,
 }
 
-struct ExpressionAndRightNode {
-    expr_or: Box<ExpressionOrNode>,
-    expr_and: Box<dyn Node>,
+pub struct ExpressionAndRightNode {
+    pub expr_or: Box<ExpressionOrNode>,
+    pub expr_and: Box<dyn Node>,
 }
 
-struct ExpressionOrNode {
-    expr_case: Box<ExpressionCaseNode>,
-    expr_or: Box<dyn Node>,
+pub struct ExpressionOrNode {
+    pub expr_case: Box<ExpressionCaseNode>,
+    pub expr_or: Box<dyn Node>,
 }
 
-struct ExpressionOrRightNode {
-    expr_case: Box<dyn Node>,
-    expr_or: Box<dyn Node>,
+pub struct ExpressionOrRightNode {
+    pub expr_case: Box<dyn Node>,
+    pub expr_or: Box<dyn Node>,
 }
 
-struct ExpressionCaseNode {
-    expr_and: Option<Box<ExpressionAndNode>>,
-    func: Option<Box<FunctionExpressionNode>>,
+pub struct ExpressionCaseNode {
+    pub expr_and: Option<Box<ExpressionAndNode>>,
+    pub func: Option<Box<FunctionExpressionNode>>,
 }
 
-struct FunctionExpressionNode {
-    name: String,
-    args: Option<Box<ArgumentsNode>>,
+pub struct FunctionExpressionNode {
+    pub name: String,
+    pub args: Option<Box<ArgumentsNode>>,
 }
 
-struct ArgumentsNode {
-    value: Option<String>,
-    expr_and: Option<Box<ExpressionAndNode>>,
-    next_args: Option<Box<ArgumentsNode>>,
+pub struct ArgumentsNode {
+    pub value: Option<String>,
+    pub expr_and: Option<Box<ExpressionAndNode>>,
+    pub next_args: Option<Box<ArgumentsNode>>,
 }
 
 impl Node for EllipsionNode {
@@ -119,13 +119,13 @@ impl Node for ArgumentsNode {
 }
 
 impl Parser {
-    fn from(target: &str) -> Parser {
+    pub fn from(target: &str) -> Parser {
         Parser {
             tokenizer: Tokenizer::from(target),
         }
     }
 
-    fn parse(&mut self) -> Result<CommandExpressionNode, Box<dyn Error>> {
+    pub fn parse(&mut self) -> Result<CommandExpressionNode, Box<dyn Error>> {
         Ok(CommandExpressionNode {
             expr_and: self.parse_expr_and()?,
         })
@@ -286,6 +286,7 @@ mod tests {
             .func
             .as_ref()
             .unwrap()
+            .clone()
             .args
             .as_ref()
             .unwrap()
