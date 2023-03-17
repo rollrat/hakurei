@@ -59,7 +59,7 @@ expr_or       -> expr_case expr_or_lr
 expr_or_lr    -> || expr_case expr_or_lr
                | e
 
-expr_case     -> ( expr )
+expr_case     -> ( expr_and )
                | func
 
 func          -> name ( )
@@ -69,8 +69,8 @@ name          -> function_name
                | function_name:sub_name
 
 args          -> const
-               | expr
-               | expr, args
+               | expr_and
+               | expr_and, args
 
 function_name -> [_:a-zA-Z0-9$]*
 number        -> [0-9]+
