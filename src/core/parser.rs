@@ -1,14 +1,4 @@
-use std::slice::SliceIndex;
-
-enum NodeType {
-    CommandExpression,
-    ExpressionAnd,
-    ExpressionAndRight,
-    ExpressionOr,
-    ExpressionOrRight,
-    ExpressionCase,
-    FunctionExpression,
-}
+use std::{process::Child, slice::SliceIndex};
 
 struct Tokenizer {
     target: Vec<char>,
@@ -49,10 +39,6 @@ impl Tokenizer {
     }
 
     fn next(&mut self) -> Token {
-        //
-        //  skip whitespace
-        //  !TODO: embed chars to struct
-        //
         while !self.check_end() && self.target[self.ptr] == ' ' {
             self.ptr += 1;
         }
@@ -176,6 +162,90 @@ impl Tokenizer {
 
     fn check_end(&self) -> bool {
         self.ptr >= self.target.len()
+    }
+}
+
+struct Parser {
+    tokenizer: Tokenizer,
+}
+
+enum NodeType {
+    CommandExpression,
+    ExpressionAnd,
+    ExpressionAndRight,
+    ExpressionOr,
+    ExpressionOrRight,
+    ExpressionCase,
+    FunctionExpression,
+}
+
+trait Node {
+    fn get_type(&self) -> NodeType;
+}
+
+struct CommandExpressionNode {}
+
+struct ExpressionAndNode {}
+
+struct ExpressionAndRightNode {}
+
+struct ExpressionOrNode {}
+
+struct ExpressionOrRightNode {}
+
+struct ExpressionCaseNode {}
+
+struct FunctionExpressionNode {}
+
+impl Node for CommandExpressionNode {
+    fn get_type(&self) -> NodeType {
+        NodeType::CommandExpression
+    }
+}
+
+impl Node for ExpressionAndNode {
+    fn get_type(&self) -> NodeType {
+        NodeType::ExpressionAnd
+    }
+}
+
+impl Node for ExpressionAndRightNode {
+    fn get_type(&self) -> NodeType {
+        NodeType::ExpressionAndRight
+    }
+}
+
+impl Node for ExpressionOrNode {
+    fn get_type(&self) -> NodeType {
+        NodeType::ExpressionOr
+    }
+}
+
+impl Node for ExpressionOrRightNode {
+    fn get_type(&self) -> NodeType {
+        NodeType::ExpressionOrRight
+    }
+}
+
+impl Node for ExpressionCaseNode {
+    fn get_type(&self) -> NodeType {
+        NodeType::ExpressionCase
+    }
+}
+
+impl Node for FunctionExpressionNode {
+    fn get_type(&self) -> NodeType {
+        NodeType::FunctionExpression
+    }
+}
+
+impl Parser {
+    fn from(target: &str) -> Tokenizer {
+        Tokenizer::from(target)
+    }
+
+    fn parse() -> CommandExpressionNode {
+        CommandExpressionNode {}
     }
 }
 
