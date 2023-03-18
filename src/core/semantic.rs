@@ -5,52 +5,119 @@ use super::parser::{
     ExpressionOrNode, ExpressionOrRightNode, FunctionExpressionNode,
 };
 
-#[derive(PartialEq)]
-pub enum SemanticType {
-    None,
-    ArticleArray,
-    ArticleSet,
-    ArticleWithCountArray,
-    CategorySet,
-    CategoryArray,
-    CategoryWithCountArray,
+#[derive(PartialEq, Clone, Debug)]
+pub enum SemanticPrimitiveType {
+    Article,
+    Category,
     Integer,
     String,
 }
 
+#[derive(Clone, Debug)]
+pub enum SemanticType {
+    None,
+    Primitive(SemanticPrimitiveType),
+    Array(Box<SemanticType>),
+    Set(Box<SemanticType>),
+    Tuple(Vec<Box<SemanticType>>),
+}
+
 impl SemanticType {
-    fn is_article(&self) -> bool {
-        *self == SemanticType::ArticleArray
-            || *self == SemanticType::ArticleSet
-            || *self == SemanticType::ArticleWithCountArray
+    fn eq(&self, other: &SemanticType) -> bool {
+        match self {
+            SemanticType::None => match other {
+                SemanticType::None => true,
+                _ => false,
+            },
+            SemanticType::Primitive(e) => match other {
+                SemanticType::Primitive(o) => e == o,
+                _ => false,
+            },
+            SemanticType::Array(e) => match other {
+                SemanticType::Array(o) => e.eq(o),
+                _ => false,
+            },
+            SemanticType::Set(e) => match other {
+                SemanticType::Set(o) => e.eq(o),
+                _ => false,
+            },
+            SemanticType::Tuple(e) => match other {
+                SemanticType::Tuple(o) => {
+                    e.len() == o.len() && e.iter().zip(o).all(|(x, y)| x.eq(y))
+                }
+                _ => false,
+            },
+        }
     }
 
-    fn is_category(&self) -> bool {
-        *self == SemanticType::CategoryArray
-            || *self == SemanticType::CategorySet
-            || *self == SemanticType::CategoryWithCountArray
-    }
-
-    fn is_array(&self) -> bool {
-        *self == SemanticType::ArticleArray || *self == SemanticType::CategoryArray
-    }
-
-    fn is_tuple_array(&self) -> bool {
-        *self == SemanticType::ArticleWithCountArray
-            || *self == SemanticType::CategoryWithCountArray
-    }
-
-    fn is_set(&self) -> bool {
-        *self == SemanticType::ArticleSet || *self == SemanticType::CategorySet
-    }
-
-    fn is_const(&self) -> bool {
-        *self == SemanticType::Integer || *self == SemanticType::String
-    }
-
-    fn can_concat(&self, other: &SemanticType) -> bool {
-        // none and/or is possible
-        !self.is_const() && *self == *other
+    fn infer_concat(&self, other: &SemanticType) -> Result<SemanticType, Box<dyn Error>> {
+        match self {
+            SemanticType::None => Ok(other.clone()),
+            SemanticType::Primitive(e) => match other {
+                SemanticType::None => Ok(Self::None),
+                SemanticType::Primitive(o) => {
+                    if e == o {
+                        Ok(self.clone())
+                    } else {
+                        Err(format!("Types {:#?} and {:#?} do not match! The two elements have different types and cannot be merged.", e, o).into())
+                    }
+                }
+                SemanticType::Array(o) => match o.as_ref() {
+                    SemanticType::None => Ok(o.as_ref().clone()),
+                    SemanticType::Primitive(p) => {
+                        if e.eq(p) {
+                            Ok(other.clone())
+                        } else {
+                            Err(format!("Types {:#?} and {:#?} do not match! To concaterate an element to a array, the type of the element in the array must match the type of the element.", e, p).into())
+                        }
+                    }
+                    _ => Err(format!("To concaterate a primitive type and an array, the element type of the array must match the primitive type.").into()),
+                },
+                SemanticType::Set(o) => match o.as_ref() {
+                    SemanticType::None => Ok(o.as_ref().clone()),
+                    SemanticType::Primitive(p) => {
+                        if e.eq(p) {
+                            Ok(other.clone())
+                        } else {
+                            Err(format!("Types {:#?} and {:#?} do not match! To merge an element to a set, the type of the element in the set must match the type of the element.", e, p).into())
+                        }
+                    }
+                    _ => Err(format!("To merge a primitive type and an set, the element type of the set must match the primitive type.").into()),
+                },
+                SemanticType::Tuple(_) => Err(format!("Primitive types and tuples cannot be concatenated").into()),
+            },
+            SemanticType::Array(e) => match e.as_ref() {
+                SemanticType::None => Ok(self.clone()),
+                SemanticType::Primitive(_) => other.infer_concat(self),
+                SemanticType::Array(o) => {
+                    if e.eq(o) {
+                        Ok(self.clone())
+                    } else {
+                        Err(format!("Types {:#?} and {:#?} do not match! To concaterate two arrays, the array elements must have the same type.", e.as_ref(), o.as_ref()).into())
+                    }
+                }
+                _ => Err(format!("Arrays can only be concaterated arrays or primitives.").into()),
+            },
+            SemanticType::Set(e) => match e.as_ref() {
+                SemanticType::None => Ok(self.clone()),
+                SemanticType::Primitive(_) => other.infer_concat(self),
+                SemanticType::Set(o) => {
+                    if e.eq(o) {
+                        Ok(self.clone())
+                    } else {
+                        Err(format!("Types {:#?} and {:#?} do not match! To merge two sets, they must have the same element type.", e.as_ref(), o.as_ref()).into())
+                    }
+                }
+                _ => Err(format!("Sets can only be merged sets or primitives.").into()),
+            },
+            SemanticType::Tuple(_) => {
+                if self.eq(other) {
+                    Ok(Self::Array(Box::new(self.clone())))
+                } else {
+                    Err(format!("If you want to merge tuples to create an array, both mergers must have the same tuple type.").into())
+                }
+            }
+        }
     }
 }
 
@@ -68,10 +135,6 @@ fn visit_expr_and(node: &ExpressionAndNode) -> Result<SemanticType, Box<dyn Erro
         Some(node) => visit_expr_and_lr(&node)?,
         None => SemanticType::None,
     };
-
-    if l_type.can_concat(&r_type) {
-        return Ok(l_type);
-    }
 
     Err("".into())
 }
