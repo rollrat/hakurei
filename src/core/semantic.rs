@@ -119,6 +119,32 @@ impl SemanticType {
             }
         }
     }
+
+    fn infer_intercross(&self, other: &SemanticType) -> Result<SemanticType, Box<dyn Error>> {
+        match self {
+            SemanticType::None => Ok(Self::None),
+            SemanticType::Primitive(_) => {
+                Err("An intercrossing subject cannot be a primitive type.".into())
+            }
+            SemanticType::Array(_) => {
+                if self.eq(other) {
+                    Ok(self.clone())
+                } else {
+                    Err(format!("Types {:#?} and {:#?} do not match! Two arrays with different element types cannot be intercrossed.", self, other).into())
+                }
+            }
+            SemanticType::Set(_) => {
+                if self.eq(other) {
+                    Ok(self.clone())
+                } else {
+                    Err(format!("Types {:#?} and {:#?} do not match! Two arrays with different element types cannot be intercrossed.", self, other).into())
+                }
+            }
+            SemanticType::Tuple(_) => {
+                Err("An intercrossing subject cannot be a tuple type.".into())
+            }
+        }
+    }
 }
 
 pub fn check_semantic(root: &CommandExpressionNode) -> Result<SemanticType, Box<dyn Error>> {
