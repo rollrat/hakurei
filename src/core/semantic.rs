@@ -1,13 +1,12 @@
-use std::{any::Any, error::Error};
-
-use crate::core::parser::NodeType;
+use std::error::Error;
 
 use super::parser::{
     CommandExpressionNode, ExpressionAndNode, ExpressionAndRightNode, ExpressionCaseNode,
     ExpressionOrNode, ExpressionOrRightNode, FunctionExpressionNode,
 };
 
-enum SemanticType {
+#[derive(PartialEq)]
+pub enum SemanticType {
     None,
     ArticleArray,
     ArticleSet,
@@ -19,25 +18,62 @@ enum SemanticType {
     String,
 }
 
-pub fn check_semantic(root: &CommandExpressionNode) -> Result<(), Box<dyn Error>> {
-    Ok(())
+impl SemanticType {
+    fn is_article(&self) -> bool {
+        *self == SemanticType::ArticleArray
+            || *self == SemanticType::ArticleSet
+            || *self == SemanticType::ArticleWithCountArray
+    }
+
+    fn is_category(&self) -> bool {
+        *self == SemanticType::CategoryArray
+            || *self == SemanticType::CategorySet
+            || *self == SemanticType::CategoryWithCountArray
+    }
+
+    fn is_array(&self) -> bool {
+        *self == SemanticType::ArticleArray || *self == SemanticType::CategoryArray
+    }
+
+    fn is_tuple_array(&self) -> bool {
+        *self == SemanticType::ArticleWithCountArray
+            || *self == SemanticType::CategoryWithCountArray
+    }
+
+    fn is_set(&self) -> bool {
+        *self == SemanticType::ArticleSet || *self == SemanticType::CategorySet
+    }
+
+    fn is_const(&self) -> bool {
+        *self == SemanticType::Integer || *self == SemanticType::String
+    }
+
+    fn can_concat(&self, other: &SemanticType) -> bool {
+        // none and/or is possible
+        !self.is_const() && *self == *other
+    }
 }
 
-fn visit_expr_and(node: &ExpressionAndNode) -> Result<SemanticType, Box<dyn Error + '_>> {
-    let l_type = visit_expr_or(node.expr_or.as_ref())?;
+pub fn check_semantic(root: &CommandExpressionNode) -> Result<SemanticType, Box<dyn Error>> {
+    visit_expr_and(&root.expr_and)
+}
 
-    let r_node = node.expr_and.as_ref();
+fn visit_expr_and(node: &ExpressionAndNode) -> Result<SemanticType, Box<dyn Error>> {
+    let l_type = match &node.expr_or {
+        Some(node) => visit_expr_or(&node)?,
+        None => SemanticType::None,
+    };
 
-    if r_node.get_type() == NodeType::Ellipsion {}
+    let r_type = match &node.expr_and {
+        Some(node) => visit_expr_and_lr(&node)?,
+        None => SemanticType::None,
+    };
 
-    let r_type = visit_expr_and_lr(
-        r_node
-            .as_any()
-            .downcast_ref::<ExpressionAndRightNode>()
-            .unwrap(),
-    )?;
+    if l_type.can_concat(&r_type) {
+        return Ok(l_type);
+    }
 
-    todo!()
+    Err("".into())
 }
 
 fn visit_expr_and_lr(node: &ExpressionAndRightNode) -> Result<SemanticType, Box<dyn Error>> {

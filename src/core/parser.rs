@@ -7,7 +7,6 @@ pub struct Parser {
 }
 
 pub enum NodeType {
-    Ellipsion,
     CommandExpression,
     ExpressionAnd,
     ExpressionAndRight,
@@ -22,30 +21,28 @@ pub trait Node {
     fn get_type(&self) -> NodeType;
 }
 
-pub struct EllipsionNode {}
-
 pub struct CommandExpressionNode {
     pub expr_and: Box<ExpressionAndNode>,
 }
 
 pub struct ExpressionAndNode {
-    pub expr_or: Box<ExpressionOrNode>,
-    pub expr_and: Box<dyn Node>,
+    pub expr_or: Option<Box<ExpressionOrNode>>,
+    pub expr_and: Option<Box<ExpressionAndRightNode>>,
 }
 
 pub struct ExpressionAndRightNode {
-    pub expr_or: Box<ExpressionOrNode>,
-    pub expr_and: Box<dyn Node>,
+    pub expr_or: Option<Box<ExpressionOrNode>>,
+    pub expr_and: Option<Box<ExpressionAndRightNode>>,
 }
 
 pub struct ExpressionOrNode {
-    pub expr_case: Box<ExpressionCaseNode>,
-    pub expr_or: Box<dyn Node>,
+    pub expr_case: Option<Box<ExpressionCaseNode>>,
+    pub expr_or: Option<Box<ExpressionOrRightNode>>,
 }
 
 pub struct ExpressionOrRightNode {
-    pub expr_case: Box<dyn Node>,
-    pub expr_or: Box<dyn Node>,
+    pub expr_case: Option<Box<ExpressionCaseNode>>,
+    pub expr_or: Option<Box<ExpressionOrRightNode>>,
 }
 
 pub struct ExpressionCaseNode {
@@ -62,12 +59,6 @@ pub struct ArgumentsNode {
     pub value: Option<String>,
     pub expr_and: Option<Box<ExpressionAndNode>>,
     pub next_args: Option<Box<ArgumentsNode>>,
-}
-
-impl Node for EllipsionNode {
-    fn get_type(&self) -> NodeType {
-        NodeType::Ellipsion
-    }
 }
 
 impl Node for CommandExpressionNode {
@@ -138,42 +129,42 @@ impl Parser {
         }))
     }
 
-    fn parse_expr_and_lr(&mut self) -> Result<Box<dyn Node>, Box<dyn Error>> {
+    fn parse_expr_and_lr(&mut self) -> Result<Option<Box<ExpressionAndRightNode>>, Box<dyn Error>> {
         if self.tokenizer.lookup() != TokenType::And {
-            return Ok(Box::new(EllipsionNode {}));
+            return Ok(None);
         }
 
         // consume &
         self.tokenizer.next();
 
-        Ok(Box::new(ExpressionAndRightNode {
+        Ok(Some(Box::new(ExpressionAndRightNode {
             expr_or: self.parse_expr_or()?,
             expr_and: self.parse_expr_and_lr()?,
-        }))
+        })))
     }
 
-    fn parse_expr_or(&mut self) -> Result<Box<ExpressionOrNode>, Box<dyn Error>> {
-        Ok(Box::new(ExpressionOrNode {
+    fn parse_expr_or(&mut self) -> Result<Option<Box<ExpressionOrNode>>, Box<dyn Error>> {
+        Ok(Some(Box::new(ExpressionOrNode {
             expr_case: self.parse_expr_case()?,
-            expr_or: self.parse_expr_or_lr(),
-        }))
+            expr_or: self.parse_expr_or_lr()?,
+        })))
     }
 
-    fn parse_expr_or_lr(&mut self) -> Box<dyn Node> {
+    fn parse_expr_or_lr(&mut self) -> Result<Option<Box<ExpressionOrRightNode>>, Box<dyn Error>> {
         if self.tokenizer.lookup() != TokenType::And {
-            return Box::new(EllipsionNode {});
+            return Ok(None);
         }
 
         // consume |
         self.tokenizer.next();
 
-        Box::new(ExpressionOrRightNode {
-            expr_case: self.parse_expr_or_lr(),
-            expr_or: self.parse_expr_or_lr(),
-        })
+        Ok(Some(Box::new(ExpressionOrRightNode {
+            expr_case: self.parse_expr_case()?,
+            expr_or: self.parse_expr_or_lr()?,
+        })))
     }
 
-    fn parse_expr_case(&mut self) -> Result<Box<ExpressionCaseNode>, Box<dyn Error>> {
+    fn parse_expr_case(&mut self) -> Result<Option<Box<ExpressionCaseNode>>, Box<dyn Error>> {
         if self.tokenizer.lookup() == TokenType::BraceStart {
             // consume (
             self.tokenizer.next();
@@ -188,17 +179,17 @@ impl Parser {
                 return Err("expect )".into());
             }
 
-            return Ok(_result);
+            return Ok(Some(_result));
         }
 
         if self.tokenizer.lookup() != TokenType::Name {
             return Err("expect name".into());
         }
 
-        Ok(Box::new(ExpressionCaseNode {
+        Ok(Some(Box::new(ExpressionCaseNode {
             expr_and: None,
             func: Some(self.parse_func()?),
-        }))
+        })))
     }
 
     fn parse_func(&mut self) -> Result<Box<FunctionExpressionNode>, Box<dyn Error>> {
@@ -281,11 +272,27 @@ mod tests {
         let mut p = Parser::from("title:startswith(\"abcd\")");
         let root = p.parse().unwrap();
 
-        let n = &root.expr_and.expr_or.expr_case.func.as_ref().unwrap().name;
+        let n = &root
+            .expr_and
+            .expr_or
+            .as_ref()
+            .unwrap()
+            .expr_case
+            .as_ref()
+            .unwrap()
+            .func
+            .as_ref()
+            .unwrap()
+            .name;
+
         let s = root
             .expr_and
             .expr_or
+            .as_ref()
+            .unwrap()
             .expr_case
+            .as_ref()
+            .unwrap()
             .func
             .as_ref()
             .unwrap()
