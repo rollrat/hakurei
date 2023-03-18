@@ -206,7 +206,10 @@ impl Parser {
         let name = self.tokenizer.next();
 
         if self.tokenizer.next().token_type != TokenType::BraceStart {
-            return Err("expect (".into());
+            return Ok(Box::new(FunctionExpressionNode {
+                name: name.content.unwrap(),
+                args: None,
+            }));
         }
 
         if self.tokenizer.lookup() == TokenType::BraceEnd {

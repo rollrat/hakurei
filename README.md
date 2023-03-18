@@ -62,7 +62,7 @@ expr_or_lr    -> | expr_case expr_or_lr
 expr_case     -> ( expr_and )
                | func
 
-func          -> name ( )
+func          -> name
                | name ( args )
 
 name          -> function_name
