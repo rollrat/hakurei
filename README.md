@@ -80,6 +80,22 @@ const         -> number
                | string
 ```
 
+#### Examples
+
+```
+1. group_sum(reduce(title:contains("동방"), category))
+title:contains("동방") => ArticleArray
+reduce(_, category)   => CategoryArray
+group_sum(_)          => CategoryWithCountArray
+
+2. count(set(reduce(title:contains("동방"), category)))
+set(_)   => CategorySet
+count(_) => usize
+
+3. map(reduce(title:startswith("서든") | title:endswith("어택"), category), select_max_len)
+map(_, select_max_len) => CategoryArray
+```
+
 ## Namuwiki Parser
 
 At least 32gb of memory is required to use this feature.
