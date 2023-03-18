@@ -51,8 +51,8 @@ Namuwiki Stream Pipeline Filter
 ```
 command       -> expr_and
 
-expr_and      -> expr_or expr_and
-expr_and_lr   -> & expr_or expr_and
+expr_and      -> expr_or expr_and_lr
+expr_and_lr   -> & expr_or expr_and_lr
                | e
 
 expr_or       -> expr_case expr_or_lr
