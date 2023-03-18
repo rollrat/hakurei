@@ -1,8 +1,8 @@
 use std::error::Error;
 
 use super::parser::{
-    CommandExpressionNode, ExpressionAndNode, ExpressionAndRightNode, ExpressionCaseNode,
-    ExpressionOrNode, ExpressionOrRightNode, FunctionExpressionNode,
+    ArgumentsNode, CommandExpressionNode, ExpressionAndNode, ExpressionAndRightNode,
+    ExpressionCaseNode, ExpressionOrNode, ExpressionOrRightNode, FunctionExpressionNode,
 };
 
 #[derive(PartialEq, Clone, Debug)]
@@ -162,58 +162,208 @@ fn visit_expr_and(node: &ExpressionAndNode) -> Result<SemanticType, Box<dyn Erro
         None => SemanticType::None,
     };
 
-    Err("".into())
+    if r_type.eq(&SemanticType::None) {
+        return Ok(l_type);
+    }
+
+    l_type.infer_intercross(&r_type)
 }
 
 fn visit_expr_and_lr(node: &ExpressionAndRightNode) -> Result<SemanticType, Box<dyn Error>> {
-    todo!()
+    let l_type = match &node.expr_or {
+        Some(node) => visit_expr_or(&node)?,
+        None => SemanticType::None,
+    };
+
+    let r_type = match &node.expr_and {
+        Some(node) => visit_expr_and_lr(&node)?,
+        None => SemanticType::None,
+    };
+
+    if r_type.eq(&SemanticType::None) {
+        return Ok(l_type);
+    }
+
+    l_type.infer_intercross(&r_type)
 }
 
 fn visit_expr_or(node: &ExpressionOrNode) -> Result<SemanticType, Box<dyn Error>> {
-    todo!()
+    let l_type = match &node.expr_case {
+        Some(node) => visit_expr_case(&node)?,
+        None => SemanticType::None,
+    };
+
+    let r_type = match &node.expr_or {
+        Some(node) => visit_expr_or_lr(&node)?,
+        None => SemanticType::None,
+    };
+
+    if r_type.eq(&SemanticType::None) {
+        return Ok(l_type);
+    }
+
+    l_type.infer_concat(&r_type)
 }
 
 fn visit_expr_or_lr(node: &ExpressionOrRightNode) -> Result<SemanticType, Box<dyn Error>> {
-    todo!()
+    let l_type = match &node.expr_case {
+        Some(node) => visit_expr_case(&node)?,
+        None => SemanticType::None,
+    };
+
+    let r_type = match &node.expr_or {
+        Some(node) => visit_expr_or_lr(&node)?,
+        None => SemanticType::None,
+    };
+
+    if r_type.eq(&SemanticType::None) {
+        return Ok(l_type);
+    }
+
+    l_type.infer_concat(&r_type)
 }
 
 fn visit_expr_case(node: &ExpressionCaseNode) -> Result<SemanticType, Box<dyn Error>> {
-    todo!()
+    if let Some(expr_and) = &node.expr_and {
+        return visit_expr_and(&expr_and);
+    }
+
+    visit_func(node.func.as_ref().unwrap())
 }
 
 fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Error>> {
-    todo!()
-}
-
-fn function_name_check(func: &str) -> bool {
-    match func {
-        "title:contains" | "title:startswith" | "title:endswith" => true,
-        "reduce" | "set" | "count" | "map" | "group_sum" | "ref" => true,
-        "category" | "select_max_len" | "select_min_len" => true,
-        _ => false,
-    }
-}
-
-fn param_check(node: &FunctionExpressionNode) -> bool {
     match &node.name[..] {
         "title:contains" | "title:startswith" | "title:endswith" => {
-            node.args.as_ref().unwrap().value.is_some()
+            let p_check = param_check_lazy_1(
+                node,
+                &SemanticType::Primitive(SemanticPrimitiveType::String),
+            )?;
+
+            if !p_check {
+                return Err(format!(
+                    "{} function accepts only {:#?} type!",
+                    &node.name,
+                    SemanticType::Primitive(SemanticPrimitiveType::String)
+                )
+                .into());
+            }
+
+            return Ok(SemanticType::Array(Box::new(SemanticType::Primitive(
+                SemanticPrimitiveType::Article,
+            ))));
         }
-        "reduce" => false,
-        _ => false,
+        _ => Err(format!("'{}' function not found!", &node.name).into()),
     }
 }
 
-fn infer_type(node: &FunctionExpressionNode) -> SemanticType {
-    todo!()
+fn param_check_lazy_1(
+    node: &FunctionExpressionNode,
+    target_type: &SemanticType,
+) -> Result<bool, Box<dyn Error>> {
+    if let Some(args) = &node.args {
+        match args.next_args {
+            Some(_) => Ok(false),
+            None => param_type_eq_lazy(args, target_type),
+        }
+    } else {
+        Ok(false)
+    }
+}
+
+fn param_check_lazy_2(
+    node: &FunctionExpressionNode,
+    first_target_type: &SemanticType,
+    second_target_type: &SemanticType,
+) -> Result<bool, Box<dyn Error>> {
+    if let Some(args_first) = &node.args {
+        match &args_first.next_args {
+            Some(args_second) => match &args_second.next_args {
+                Some(_) => Ok(false),
+                None => Ok(param_type_eq_lazy(args_first, first_target_type)?
+                    && param_type_eq_lazy(args_second, second_target_type)?),
+            },
+            None => Ok(false),
+        }
+    } else {
+        Ok(false)
+    }
+}
+
+fn param_type_eq_lazy(
+    args: &ArgumentsNode,
+    target_type: &SemanticType,
+) -> Result<bool, Box<dyn Error>> {
+    Ok(if let Some(value) = &args.value {
+        match target_type {
+            SemanticType::Primitive(prim_type) => match prim_type {
+                SemanticPrimitiveType::Integer => {
+                    if let Ok(_) = value.parse::<usize>() {
+                        true
+                    } else {
+                        false
+                    }
+                }
+                SemanticPrimitiveType::String => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    } else if let Some(expr_and) = &args.expr_and {
+        let l_type = visit_expr_and(&expr_and)?;
+
+        match l_type {
+            SemanticType::Primitive(e) => match target_type {
+                SemanticType::Primitive(o) => e == *o,
+                _ => false,
+            },
+            SemanticType::Array(_) => match target_type {
+                SemanticType::Array(_) => true,
+                _ => false,
+            },
+            SemanticType::Set(_) => match target_type {
+                SemanticType::Set(_) => true,
+                _ => false,
+            },
+            _ => false,
+        }
+    } else {
+        false
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::core::semantic::function_name_check;
+    use crate::core::semantic::{SemanticPrimitiveType, SemanticType};
 
     #[test]
-    fn function_name_check_test() {
-        assert_eq!(function_name_check("title:contains"), true);
+    fn type_eq_test() {
+        let t = SemanticType::Array(Box::new(SemanticType::Set(Box::new(SemanticType::Tuple(
+            vec![
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::String)),
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
+            ],
+        )))))
+        .eq(&SemanticType::Array(Box::new(SemanticType::Set(Box::new(
+            SemanticType::Tuple(vec![
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::String)),
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
+            ]),
+        )))));
+
+        let f = SemanticType::Array(Box::new(SemanticType::Set(Box::new(SemanticType::Tuple(
+            vec![
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::String)),
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
+            ],
+        )))))
+        .eq(&SemanticType::Array(Box::new(SemanticType::Set(Box::new(
+            SemanticType::Tuple(vec![
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
+            ]),
+        )))));
+
+        assert!(t);
+        assert!(!f);
     }
 }
