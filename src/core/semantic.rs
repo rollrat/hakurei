@@ -249,6 +249,12 @@ fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Err
         return Ok(SemanticType::Primitive(SemanticPrimitiveType::Function));
     }
 
+    // title:*(<String>) => [Category]
+    // count(<Array<T> | Set<T>>) => Integer
+    // set(<Array<T>>) => Set<T>
+    // group_sum(<Array<T>>) => Array<(T, Integer)>
+    // reduce(<Array<T>>, (T) => Array<F>) => Array<F> *flatten
+    // map(<Array<T>>, (T) => F) => Array<F>
     match &node.name[..] {
         "title:contains" | "title:startswith" | "title:endswith" => {
             param_check_lazy_1(
@@ -256,9 +262,28 @@ fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Err
                 &SemanticType::Primitive(SemanticPrimitiveType::String),
             )?;
 
-            return Ok(SemanticType::Array(Box::new(SemanticType::Primitive(
+            Ok(SemanticType::Array(Box::new(SemanticType::Primitive(
                 SemanticPrimitiveType::Article,
-            ))));
+            ))))
+        }
+        "count" => {
+            let check_is_array =
+                param_check_lazy_1(node, &SemanticType::Array(Box::new(SemanticType::None)));
+
+            if let Ok(_) = check_is_array {
+                return Ok(SemanticType::Primitive(SemanticPrimitiveType::Integer));
+            }
+
+            let check_is_set =
+                param_check_lazy_1(node, &SemanticType::Set(Box::new(SemanticType::None)));
+
+            if let Ok(_) = check_is_set {
+                return Ok(SemanticType::Primitive(SemanticPrimitiveType::Integer));
+            }
+
+            check_is_array?;
+
+            panic!("unreachable")
         }
         "reduce" => {
             param_check_lazy_2(
@@ -271,7 +296,7 @@ fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Err
                 visit_expr_and(&node.args.as_ref().unwrap().expr_and.as_ref().unwrap())?;
             let first_param_uncapsuled = match first_param_type {
                 SemanticType::Array(e) => e.clone(),
-                _ => panic!("unrechable"),
+                _ => panic!("unreachable"),
             };
 
             // so hell ...
@@ -305,6 +330,16 @@ fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Err
     }
 }
 
+fn visit_args(node: &ArgumentsNode) -> Result<SemanticType, Box<dyn Error>> {
+    Ok(if let Some(_) = &node.value {
+        SemanticType::Primitive(SemanticPrimitiveType::String)
+    } else if let Some(expr_and) = &node.expr_and {
+        visit_expr_and(&expr_and)?
+    } else {
+        panic!("unreachable")
+    })
+}
+
 fn param_check_lazy_1(
     node: &FunctionExpressionNode,
     target_type: &SemanticType,
@@ -313,12 +348,14 @@ fn param_check_lazy_1(
         match args.next_args {
             Some(_) => Err(format!("'{}' function must have one parameter!", &node.name).into()),
             None => {
-                if param_type_eq_lazy(args, target_type)? {
+                if param_type_eq_generic(args, target_type)? {
                     Ok(())
                 } else {
                     Err(format!(
-                        "The first parameter of '{}' function must be '{:?}'",
-                        &node.name, target_type
+                        "The first parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
+                        &node.name,
+                        target_type, 
+                        visit_args(args)?
                     )
                     .into())
                 }
@@ -341,16 +378,20 @@ fn param_check_lazy_2(
                     Err(format!("'{}' function must have two parameters!", &node.name).into())
                 }
                 None => {
-                    if !param_type_eq_lazy(args_first, first_target_type)? {
+                    if !param_type_eq_generic(args_first, first_target_type)? {
                         Err(format!(
-                            "The first parameter of '{}' function must be '{:?}'",
-                            &node.name, first_target_type
+                            "The first parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
+                            &node.name, 
+                            first_target_type, 
+                            visit_args(args_first)?
                         )
                         .into())
-                    } else if !param_type_eq_lazy(args_second, second_target_type)? {
+                    } else if !param_type_eq_generic(args_second, second_target_type)? {
                         Err(format!(
-                            "The second parameter of '{}' function must be '{:?}'",
-                            &node.name, second_target_type
+                            "The second parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
+                            &node.name,
+                            second_target_type,
+                            visit_args(args_first)?
                         )
                         .into())
                     } else {
@@ -365,7 +406,7 @@ fn param_check_lazy_2(
     }
 }
 
-fn param_type_eq_lazy(
+fn param_type_eq_generic(
     args: &ArgumentsNode,
     target_type: &SemanticType,
 ) -> Result<bool, Box<dyn Error>> {
@@ -502,6 +543,18 @@ mod tests {
         let target_type = SemanticType::Array(Box::new(SemanticType::Primitive(
             SemanticPrimitiveType::Category,
         )));
+
+        assert!(inferred_type.eq(&target_type));
+    }
+
+    #[test]
+    fn type_infer_test_3() {
+        let mut p = Parser::from("count(reduce(title:contains(\"동방\"), category))");
+        let root = p.parse().unwrap();
+
+        let inferred_type = check_semantic(&root).unwrap();
+
+        let target_type = Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer));
 
         println!("{:?}", &inferred_type);
 
