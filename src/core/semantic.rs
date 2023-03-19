@@ -251,32 +251,55 @@ fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Err
 
     match &node.name[..] {
         "title:contains" | "title:startswith" | "title:endswith" => {
-            let p_check = param_check_lazy_1(
+            param_check_lazy_1(
                 node,
                 &SemanticType::Primitive(SemanticPrimitiveType::String),
             )?;
-
-            if !p_check {
-                return Err(format!(
-                    "{} function accepts only {:?} type!",
-                    &node.name,
-                    SemanticType::Primitive(SemanticPrimitiveType::String)
-                )
-                .into());
-            }
 
             return Ok(SemanticType::Array(Box::new(SemanticType::Primitive(
                 SemanticPrimitiveType::Article,
             ))));
         }
         "reduce" => {
-            let p_check = param_check_lazy_2(
+            param_check_lazy_2(
                 node,
                 &SemanticType::Array(Box::new(SemanticType::None)),
                 &SemanticType::Primitive(SemanticPrimitiveType::Function),
-            );
+            )?;
 
-            todo!();
+            let first_param_type =
+                visit_expr_and(&node.args.as_ref().unwrap().expr_and.as_ref().unwrap())?;
+            let first_param_uncapsuled = match first_param_type {
+                SemanticType::Array(e) => e.clone(),
+                _ => panic!("unrechable"),
+            };
+
+            // so hell ...
+            let second_param_func_name = &node
+                .args
+                .as_ref()
+                .unwrap()
+                .next_args
+                .as_ref()
+                .unwrap()
+                .expr_and
+                .as_ref()
+                .unwrap()
+                .expr_or
+                .as_ref()
+                .unwrap()
+                .expr_case
+                .as_ref()
+                .unwrap()
+                .func
+                .as_ref()
+                .unwrap()
+                .name;
+
+            Ok(get_primitive_func_return_type(
+                second_param_func_name,
+                &first_param_uncapsuled,
+            )?)
         }
         _ => Err(format!("'{}' function not found!", &node.name).into()),
     }
@@ -285,14 +308,24 @@ fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Err
 fn param_check_lazy_1(
     node: &FunctionExpressionNode,
     target_type: &SemanticType,
-) -> Result<bool, Box<dyn Error>> {
+) -> Result<(), Box<dyn Error>> {
     if let Some(args) = &node.args {
         match args.next_args {
-            Some(_) => Ok(false),
-            None => param_type_eq_lazy(args, target_type),
+            Some(_) => Err(format!("'{}' function must have one parameter!", &node.name).into()),
+            None => {
+                if param_type_eq_lazy(args, target_type)? {
+                    Ok(())
+                } else {
+                    Err(format!(
+                        "The first parameter of '{}' function must be '{:?}'",
+                        &node.name, target_type
+                    )
+                    .into())
+                }
+            }
         }
     } else {
-        Ok(false)
+        Err(format!("'{}' function must have one parameter!", &node.name).into())
     }
 }
 
@@ -300,18 +333,35 @@ fn param_check_lazy_2(
     node: &FunctionExpressionNode,
     first_target_type: &SemanticType,
     second_target_type: &SemanticType,
-) -> Result<bool, Box<dyn Error>> {
+) -> Result<(), Box<dyn Error>> {
     if let Some(args_first) = &node.args {
         match &args_first.next_args {
             Some(args_second) => match &args_second.next_args {
-                Some(_) => Ok(false),
-                None => Ok(param_type_eq_lazy(args_first, first_target_type)?
-                    && param_type_eq_lazy(args_second, second_target_type)?),
+                Some(_) => {
+                    Err(format!("'{}' function must have two parameters!", &node.name).into())
+                }
+                None => {
+                    if !param_type_eq_lazy(args_first, first_target_type)? {
+                        Err(format!(
+                            "The first parameter of '{}' function must be '{:?}'",
+                            &node.name, first_target_type
+                        )
+                        .into())
+                    } else if !param_type_eq_lazy(args_second, second_target_type)? {
+                        Err(format!(
+                            "The second parameter of '{}' function must be '{:?}'",
+                            &node.name, second_target_type
+                        )
+                        .into())
+                    } else {
+                        Ok(())
+                    }
+                }
             },
-            None => Ok(false),
+            None => Err(format!("'{}' function must have two parameters!", &node.name).into()),
         }
     } else {
-        Ok(false)
+        Err(format!("'{}' function must have two parameters!", &node.name).into())
     }
 }
 
@@ -433,13 +483,29 @@ mod tests {
         let mut p = Parser::from("title:startswith(\"abcd\") & title:startswith(\"abcd\")");
         let root = p.parse().unwrap();
 
-        let inferred_type = check_semantic(&root);
+        let inferred_type = check_semantic(&root).unwrap();
 
         let target_type = SemanticType::Array(Box::new(SemanticType::Primitive(
             SemanticPrimitiveType::Article,
         )));
 
-        assert!(inferred_type.unwrap().eq(&target_type));
+        assert!(inferred_type.eq(&target_type));
+    }
+
+    #[test]
+    fn type_infer_test_2() {
+        let mut p = Parser::from("reduce(title:contains(\"동방\"), category)");
+        let root = p.parse().unwrap();
+
+        let inferred_type = check_semantic(&root).unwrap();
+
+        let target_type = SemanticType::Array(Box::new(SemanticType::Primitive(
+            SemanticPrimitiveType::Category,
+        )));
+
+        println!("{:?}", &inferred_type);
+
+        assert!(inferred_type.eq(&target_type));
     }
 
     #[test]
