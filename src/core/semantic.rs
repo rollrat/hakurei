@@ -333,7 +333,12 @@ fn param_type_eq_lazy(
 
 #[cfg(test)]
 mod tests {
-    use crate::core::semantic::{SemanticPrimitiveType, SemanticType};
+    use crate::core::{
+        parser::Parser,
+        semantic::{SemanticPrimitiveType, SemanticType},
+    };
+
+    use super::check_semantic;
 
     fn get_si() -> SemanticType {
         SemanticType::Array(Box::new(SemanticType::Set(Box::new(SemanticType::Tuple(
@@ -369,5 +374,19 @@ mod tests {
             Ok(_) => false,
             Err(_) => true,
         });
+    }
+
+    #[test]
+    fn type_infer_test() {
+        let mut p = Parser::from("title:startswith(\"abcd\") & title:startswith(\"abcd\")");
+        let root = p.parse().unwrap();
+
+        let inferred_type = check_semantic(&root);
+
+        let target_type = SemanticType::Array(Box::new(SemanticType::Primitive(
+            SemanticPrimitiveType::Article,
+        )));
+
+        assert!(inferred_type.unwrap().eq(&target_type));
     }
 }
