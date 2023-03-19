@@ -165,7 +165,7 @@ impl Parser {
     }
 
     fn parse_expr_or_lr(&mut self) -> Result<Option<Box<ExpressionOrRightNode>>, Box<dyn Error>> {
-        if self.tokenizer.lookup() != TokenType::And {
+        if self.tokenizer.lookup() != TokenType::Or {
             return Ok(None);
         }
 
@@ -210,12 +210,15 @@ impl Parser {
         // consume name
         let name = self.tokenizer.next();
 
-        if self.tokenizer.next().token_type != TokenType::BraceStart {
+        if self.tokenizer.lookup() != TokenType::BraceStart {
             return Ok(Box::new(FunctionExpressionNode {
                 name: name.content.unwrap(),
                 args: None,
             }));
         }
+
+        // consume (
+        self.tokenizer.next();
 
         if self.tokenizer.lookup() == TokenType::BraceEnd {
             // consume )
@@ -329,5 +332,15 @@ mod tests {
 
         assert_eq!(n, "title:startswith");
         assert_eq!(s, "abcd");
+    }
+
+    #[test]
+    fn parse_test_2() {
+        let mut p = Parser::from("group_sum(reduce(title:contains(\"동방\"), category))");
+        p.parse().unwrap();
+        let mut p = Parser::from("count(set(reduce(title:contains(\"동방\"), category)))");
+        p.parse().unwrap();
+        let mut p = Parser::from("map(reduce(title:startswith(\"서든\") | title:endswith(\"어택\"), category), select_max_len)");
+        p.parse().unwrap();
     }
 }
