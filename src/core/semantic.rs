@@ -285,6 +285,18 @@ fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Err
 
             panic!("unreachable")
         }
+        "set" => {
+            param_check_lazy_1(node, &SemanticType::Array(Box::new(SemanticType::None)))?;
+
+            let first_param_type =
+                visit_expr_and(&node.args.as_ref().unwrap().expr_and.as_ref().unwrap())?;
+            let first_param_uncapsuled = match first_param_type {
+                SemanticType::Array(e) => e.clone(),
+                _ => panic!("unreachable"),
+            };
+
+            Ok(SemanticType::Set(first_param_uncapsuled))
+        }
         "reduce" => {
             param_check_lazy_2(
                 node,
@@ -555,6 +567,21 @@ mod tests {
         let inferred_type = check_semantic(&root).unwrap();
 
         let target_type = Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer));
+
+        println!("{:?}", &inferred_type);
+
+        assert!(inferred_type.eq(&target_type));
+    }
+
+
+    #[test]
+    fn type_infer_test_4() {
+        let mut p = Parser::from("set(reduce(title:contains(\"동방\"), category))");
+        let root = p.parse().unwrap();
+
+        let inferred_type = check_semantic(&root).unwrap();
+
+        let target_type = SemanticType::Set(Box::new(SemanticType::Primitive(SemanticPrimitiveType::Category)));
 
         println!("{:?}", &inferred_type);
 
