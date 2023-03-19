@@ -86,7 +86,7 @@ impl SemanticType {
                 },
                 SemanticType::Tuple(_) => Err(format!("Primitive types and tuples cannot be concatenated").into()),
             },
-            SemanticType::Array(e) => match e.as_ref() {
+            SemanticType::Array(e) => match other {
                 SemanticType::None => Ok(self.clone()),
                 SemanticType::Primitive(_) => other.infer_concat(self),
                 SemanticType::Array(o) => {
@@ -98,7 +98,7 @@ impl SemanticType {
                 }
                 _ => Err(format!("Arrays can only be concaterated arrays or primitives.").into()),
             },
-            SemanticType::Set(e) => match e.as_ref() {
+            SemanticType::Set(e) => match other {
                 SemanticType::None => Ok(self.clone()),
                 SemanticType::Primitive(_) => other.infer_concat(self),
                 SemanticType::Set(o) => {
@@ -335,35 +335,39 @@ fn param_type_eq_lazy(
 mod tests {
     use crate::core::semantic::{SemanticPrimitiveType, SemanticType};
 
+    fn get_si() -> SemanticType {
+        SemanticType::Array(Box::new(SemanticType::Set(Box::new(SemanticType::Tuple(
+            vec![
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::String)),
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
+            ],
+        )))))
+    }
+
+    fn get_ii() -> SemanticType {
+        SemanticType::Array(Box::new(SemanticType::Set(Box::new(SemanticType::Tuple(
+            vec![
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
+                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
+            ],
+        )))))
+    }
+
     #[test]
     fn type_eq_test() {
-        let t = SemanticType::Array(Box::new(SemanticType::Set(Box::new(SemanticType::Tuple(
-            vec![
-                Box::new(SemanticType::Primitive(SemanticPrimitiveType::String)),
-                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
-            ],
-        )))))
-        .eq(&SemanticType::Array(Box::new(SemanticType::Set(Box::new(
-            SemanticType::Tuple(vec![
-                Box::new(SemanticType::Primitive(SemanticPrimitiveType::String)),
-                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
-            ]),
-        )))));
+        assert!(get_si().eq(&get_si()));
+        assert!(!get_si().eq(&get_ii()));
+    }
 
-        let f = SemanticType::Array(Box::new(SemanticType::Set(Box::new(SemanticType::Tuple(
-            vec![
-                Box::new(SemanticType::Primitive(SemanticPrimitiveType::String)),
-                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
-            ],
-        )))))
-        .eq(&SemanticType::Array(Box::new(SemanticType::Set(Box::new(
-            SemanticType::Tuple(vec![
-                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
-                Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
-            ]),
-        )))));
-
-        assert!(t);
-        assert!(!f);
+    #[test]
+    fn type_infer_concat_test() {
+        assert!(match get_si().infer_concat(&get_si()) {
+            Ok(_) => true,
+            Err(_) => false,
+        });
+        assert!(match get_si().infer_concat(&get_ii()) {
+            Ok(_) => false,
+            Err(_) => true,
+        });
     }
 }
