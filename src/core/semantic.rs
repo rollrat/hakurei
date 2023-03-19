@@ -11,6 +11,7 @@ pub enum SemanticPrimitiveType {
     Category,
     Integer,
     String,
+    Function,
 }
 
 #[derive(Clone, Debug)]
@@ -55,17 +56,25 @@ impl SemanticType {
             SemanticType::None => Ok(other.clone()),
             SemanticType::Primitive(e) => match other {
                 SemanticType::None => Ok(Self::None),
-                SemanticType::Primitive(o) => {
-                    if e == o {
+                SemanticType::Primitive(p) => {
+                    if e == &SemanticPrimitiveType::Function || p == &SemanticPrimitiveType::Function {
+                        return Err(format!("Cannot merge functions!").into())
+                    }
+
+                    if e == p {
                         Ok(self.clone())
                     } else {
-                        Err(format!("Types {:?} and {:?} do not match! The two elements have different types and cannot be merged.", e, o).into())
+                        Err(format!("Types {:?} and {:?} do not match! The two elements have different types and cannot be merged.", e, p).into())
                     }
                 }
                 SemanticType::Array(o) => match o.as_ref() {
                     SemanticType::None => Ok(o.as_ref().clone()),
                     SemanticType::Primitive(p) => {
-                        if e.eq(p) {
+                        if e == &SemanticPrimitiveType::Function || p == &SemanticPrimitiveType::Function {
+                            return Err(format!("Cannot merge functions!").into())
+                        }
+
+                        if e == p {
                             Ok(other.clone())
                         } else {
                             Err(format!("Types {:?} and {:?} do not match! To concaterate an element to a array, the type of the element in the array must match the type of the element.", e, p).into())
@@ -76,7 +85,11 @@ impl SemanticType {
                 SemanticType::Set(o) => match o.as_ref() {
                     SemanticType::None => Ok(o.as_ref().clone()),
                     SemanticType::Primitive(p) => {
-                        if e.eq(p) {
+                        if p == &SemanticPrimitiveType::Function {
+                            return Err(format!("Cannot merge functions!").into())
+                        }
+
+                        if e == p {
                             Ok(other.clone())
                         } else {
                             Err(format!("Types {:?} and {:?} do not match! To merge an element to a set, the type of the element in the set must match the type of the element.", e, p).into())
@@ -232,6 +245,10 @@ fn visit_expr_case(node: &ExpressionCaseNode) -> Result<SemanticType, Box<dyn Er
 }
 
 fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Error>> {
+    if node.is_use {
+        return Ok(SemanticType::Primitive(SemanticPrimitiveType::Function));
+    }
+
     match &node.name[..] {
         "title:contains" | "title:startswith" | "title:endswith" => {
             let p_check = param_check_lazy_1(
@@ -251,6 +268,15 @@ fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Err
             return Ok(SemanticType::Array(Box::new(SemanticType::Primitive(
                 SemanticPrimitiveType::Article,
             ))));
+        }
+        "reduce" => {
+            let p_check = param_check_lazy_2(
+                node,
+                &SemanticType::Array(Box::new(SemanticType::None)),
+                &SemanticType::Primitive(SemanticPrimitiveType::Function),
+            );
+
+            todo!();
         }
         _ => Err(format!("'{}' function not found!", &node.name).into()),
     }
@@ -331,6 +357,32 @@ fn param_type_eq_lazy(
     })
 }
 
+fn get_primitive_func_return_type(
+    func: &str,
+    input_type: &SemanticType,
+) -> Result<SemanticType, Box<dyn Error>> {
+    match func {
+        "category" => match input_type {
+            SemanticType::Primitive(p) => match p {
+                SemanticPrimitiveType::Article => Ok(SemanticType::Array(Box::new(
+                    SemanticType::Primitive(SemanticPrimitiveType::Category),
+                ))),
+                _ => Err(format!("The 'category' function's input must be article!").into()),
+            },
+            _ => Err(format!("The 'category' function's input must be article!").into()),
+        },
+        "select_min_len" | "select_max_len" => match input_type {
+            SemanticType::Array(e) | SemanticType::Set(e) => Ok(*e.clone()),
+            _ => Err(format!(
+                "You cannot be used as an input {:?} to function '{}'.",
+                input_type, func
+            )
+            .into()),
+        },
+        _ => Err(format!("{} function not found!", func).into()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::core::{
@@ -338,7 +390,7 @@ mod tests {
         semantic::{SemanticPrimitiveType, SemanticType},
     };
 
-    use super::check_semantic;
+    use super::{check_semantic, get_primitive_func_return_type};
 
     fn get_si() -> SemanticType {
         SemanticType::Array(Box::new(SemanticType::Set(Box::new(SemanticType::Tuple(
@@ -388,5 +440,17 @@ mod tests {
         )));
 
         assert!(inferred_type.unwrap().eq(&target_type));
+    }
+
+    #[test]
+    fn get_primitive_func_return_type_test() {
+        assert!(get_primitive_func_return_type(
+            &"select_min_len",
+            &SemanticType::Array(Box::new(SemanticType::Primitive(
+                SemanticPrimitiveType::String,
+            )))
+        )
+        .unwrap()
+        .eq(&SemanticType::Primitive(SemanticPrimitiveType::String)));
     }
 }

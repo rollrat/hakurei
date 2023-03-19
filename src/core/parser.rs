@@ -59,6 +59,7 @@ pub struct ExpressionCaseNode {
 #[derive(Debug)]
 pub struct FunctionExpressionNode {
     pub name: String,
+    pub is_use: bool, // A function is used as an argument to another function.
     pub args: Option<Box<ArgumentsNode>>,
 }
 
@@ -213,6 +214,7 @@ impl Parser {
         if self.tokenizer.lookup() != TokenType::BraceStart {
             return Ok(Box::new(FunctionExpressionNode {
                 name: name.content.unwrap(),
+                is_use: true,
                 args: None,
             }));
         }
@@ -226,6 +228,7 @@ impl Parser {
 
             return Ok(Box::new(FunctionExpressionNode {
                 name: name.content.unwrap(),
+                is_use: false,
                 args: None,
             }));
         }
@@ -241,6 +244,7 @@ impl Parser {
 
         Ok(Box::new(FunctionExpressionNode {
             name: name.content.unwrap(),
+            is_use: false,
             args: Some(args),
         }))
     }
