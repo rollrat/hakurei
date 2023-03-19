@@ -59,7 +59,7 @@ impl SemanticType {
                     if e == o {
                         Ok(self.clone())
                     } else {
-                        Err(format!("Types {:#?} and {:#?} do not match! The two elements have different types and cannot be merged.", e, o).into())
+                        Err(format!("Types {:?} and {:?} do not match! The two elements have different types and cannot be merged.", e, o).into())
                     }
                 }
                 SemanticType::Array(o) => match o.as_ref() {
@@ -68,7 +68,7 @@ impl SemanticType {
                         if e.eq(p) {
                             Ok(other.clone())
                         } else {
-                            Err(format!("Types {:#?} and {:#?} do not match! To concaterate an element to a array, the type of the element in the array must match the type of the element.", e, p).into())
+                            Err(format!("Types {:?} and {:?} do not match! To concaterate an element to a array, the type of the element in the array must match the type of the element.", e, p).into())
                         }
                     }
                     _ => Err(format!("To concaterate a primitive type and an array, the element type of the array must match the primitive type.").into()),
@@ -79,7 +79,7 @@ impl SemanticType {
                         if e.eq(p) {
                             Ok(other.clone())
                         } else {
-                            Err(format!("Types {:#?} and {:#?} do not match! To merge an element to a set, the type of the element in the set must match the type of the element.", e, p).into())
+                            Err(format!("Types {:?} and {:?} do not match! To merge an element to a set, the type of the element in the set must match the type of the element.", e, p).into())
                         }
                     }
                     _ => Err(format!("To merge a primitive type and an set, the element type of the set must match the primitive type.").into()),
@@ -93,7 +93,7 @@ impl SemanticType {
                     if e.eq(o) {
                         Ok(self.clone())
                     } else {
-                        Err(format!("Types {:#?} and {:#?} do not match! To concaterate two arrays, the array elements must have the same type.", e.as_ref(), o.as_ref()).into())
+                        Err(format!("Types {:?} and {:?} do not match! To concaterate two arrays, the array elements must have the same type.", e.as_ref(), o.as_ref()).into())
                     }
                 }
                 _ => Err(format!("Arrays can only be concaterated arrays or primitives.").into()),
@@ -105,7 +105,7 @@ impl SemanticType {
                     if e.eq(o) {
                         Ok(self.clone())
                     } else {
-                        Err(format!("Types {:#?} and {:#?} do not match! To merge two sets, they must have the same element type.", e.as_ref(), o.as_ref()).into())
+                        Err(format!("Types {:?} and {:?} do not match! To merge two sets, they must have the same element type.", e.as_ref(), o.as_ref()).into())
                     }
                 }
                 _ => Err(format!("Sets can only be merged sets or primitives.").into()),
@@ -130,14 +130,14 @@ impl SemanticType {
                 if self.eq(other) {
                     Ok(self.clone())
                 } else {
-                    Err(format!("Types {:#?} and {:#?} do not match! Two arrays with different element types cannot be intercrossed.", self, other).into())
+                    Err(format!("Types {:?} and {:?} do not match! Two arrays with different element types cannot be intercrossed.", self, other).into())
                 }
             }
             SemanticType::Set(_) => {
                 if self.eq(other) {
                     Ok(self.clone())
                 } else {
-                    Err(format!("Types {:#?} and {:#?} do not match! Two arrays with different element types cannot be intercrossed.", self, other).into())
+                    Err(format!("Types {:?} and {:?} do not match! Two arrays with different element types cannot be intercrossed.", self, other).into())
                 }
             }
             SemanticType::Tuple(_) => {
@@ -241,7 +241,7 @@ fn visit_func(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Err
 
             if !p_check {
                 return Err(format!(
-                    "{} function accepts only {:#?} type!",
+                    "{} function accepts only {:?} type!",
                     &node.name,
                     SemanticType::Primitive(SemanticPrimitiveType::String)
                 )
