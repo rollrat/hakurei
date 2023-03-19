@@ -21,40 +21,48 @@ pub trait Node {
     fn get_type(&self) -> NodeType;
 }
 
+#[derive(Debug)]
 pub struct CommandExpressionNode {
     pub expr_and: Box<ExpressionAndNode>,
 }
 
+#[derive(Debug)]
 pub struct ExpressionAndNode {
     pub expr_or: Option<Box<ExpressionOrNode>>,
     pub expr_and: Option<Box<ExpressionAndRightNode>>,
 }
 
+#[derive(Debug)]
 pub struct ExpressionAndRightNode {
     pub expr_or: Option<Box<ExpressionOrNode>>,
     pub expr_and: Option<Box<ExpressionAndRightNode>>,
 }
 
+#[derive(Debug)]
 pub struct ExpressionOrNode {
     pub expr_case: Option<Box<ExpressionCaseNode>>,
     pub expr_or: Option<Box<ExpressionOrRightNode>>,
 }
 
+#[derive(Debug)]
 pub struct ExpressionOrRightNode {
     pub expr_case: Option<Box<ExpressionCaseNode>>,
     pub expr_or: Option<Box<ExpressionOrRightNode>>,
 }
 
+#[derive(Debug)]
 pub struct ExpressionCaseNode {
     pub expr_and: Option<Box<ExpressionAndNode>>,
     pub func: Option<Box<FunctionExpressionNode>>,
 }
 
+#[derive(Debug)]
 pub struct FunctionExpressionNode {
     pub name: String,
     pub args: Option<Box<ArgumentsNode>>,
 }
 
+#[derive(Debug)]
 pub struct ArgumentsNode {
     pub value: Option<String>,
     pub expr_and: Option<Box<ExpressionAndNode>>,
@@ -117,9 +125,15 @@ impl Parser {
     }
 
     pub fn parse(&mut self) -> Result<CommandExpressionNode, Box<dyn Error>> {
-        Ok(CommandExpressionNode {
-            expr_and: self.parse_expr_and()?,
-        })
+        let result = self.parse_expr_and()?;
+
+        let nt = self.tokenizer.next();
+
+        if nt.token_type != TokenType::Eof {
+            Err(format!("Unexpected token \"{}\".", nt.content.unwrap()).into())
+        } else {
+            Ok(CommandExpressionNode { expr_and: result })
+        }
     }
 
     fn parse_expr_and(&mut self) -> Result<Box<ExpressionAndNode>, Box<dyn Error>> {
@@ -213,9 +227,18 @@ impl Parser {
             }));
         }
 
+        let args = self.parse_args()?;
+
+        if self.tokenizer.lookup() != TokenType::BraceEnd {
+            return Err("expect )".into());
+        }
+
+        // consume )
+        self.tokenizer.next();
+
         Ok(Box::new(FunctionExpressionNode {
             name: name.content.unwrap(),
-            args: Some(self.parse_args()?),
+            args: Some(args),
         }))
     }
 

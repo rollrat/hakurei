@@ -16,6 +16,7 @@ pub enum TokenType {
     Const,      // number ([0-9]+), string ("([^\\"]|\\")*")
 }
 
+#[derive(Debug)]
 pub struct Token {
     pub token_type: TokenType,
     pub content: Option<String>,
