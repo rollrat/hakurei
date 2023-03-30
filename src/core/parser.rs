@@ -1,6 +1,9 @@
 use std::error::Error;
 
-use super::tokenizer::{TokenType, Tokenizer};
+use super::{
+    semantic::SemanticType,
+    tokenizer::{TokenType, Tokenizer},
+};
 
 pub struct Parser {
     tokenizer: Tokenizer,
@@ -24,36 +27,42 @@ pub trait Node {
 #[derive(Debug)]
 pub struct CommandExpressionNode {
     pub expr_and: Box<ExpressionAndNode>,
+    pub semantic_type: Option<SemanticType>,
 }
 
 #[derive(Debug)]
 pub struct ExpressionAndNode {
     pub expr_or: Option<Box<ExpressionOrNode>>,
     pub expr_and: Option<Box<ExpressionAndRightNode>>,
+    pub semantic_type: Option<SemanticType>,
 }
 
 #[derive(Debug)]
 pub struct ExpressionAndRightNode {
     pub expr_or: Option<Box<ExpressionOrNode>>,
     pub expr_and: Option<Box<ExpressionAndRightNode>>,
+    pub semantic_type: Option<SemanticType>,
 }
 
 #[derive(Debug)]
 pub struct ExpressionOrNode {
     pub expr_case: Option<Box<ExpressionCaseNode>>,
     pub expr_or: Option<Box<ExpressionOrRightNode>>,
+    pub semantic_type: Option<SemanticType>,
 }
 
 #[derive(Debug)]
 pub struct ExpressionOrRightNode {
     pub expr_case: Option<Box<ExpressionCaseNode>>,
     pub expr_or: Option<Box<ExpressionOrRightNode>>,
+    pub semantic_type: Option<SemanticType>,
 }
 
 #[derive(Debug)]
 pub struct ExpressionCaseNode {
     pub expr_and: Option<Box<ExpressionAndNode>>,
     pub func: Option<Box<FunctionExpressionNode>>,
+    pub semantic_type: Option<SemanticType>,
 }
 
 #[derive(Debug)]
@@ -61,6 +70,7 @@ pub struct FunctionExpressionNode {
     pub name: String,
     pub is_use: bool, // A function is used as an argument to another function.
     pub args: Option<Box<ArgumentsNode>>,
+    pub semantic_type: Option<SemanticType>,
 }
 
 #[derive(Debug)]
@@ -68,6 +78,7 @@ pub struct ArgumentsNode {
     pub value: Option<String>,
     pub expr_and: Option<Box<ExpressionAndNode>>,
     pub next_args: Option<Box<ArgumentsNode>>,
+    pub semantic_type: Option<SemanticType>,
 }
 
 impl Node for CommandExpressionNode {
@@ -133,7 +144,10 @@ impl Parser {
         if nt.token_type != TokenType::Eof {
             Err(format!("Unexpected token \"{}\".", nt.content.unwrap()).into())
         } else {
-            Ok(CommandExpressionNode { expr_and: result })
+            Ok(CommandExpressionNode {
+                expr_and: result,
+                semantic_type: None,
+            })
         }
     }
 
@@ -141,6 +155,7 @@ impl Parser {
         Ok(Box::new(ExpressionAndNode {
             expr_or: self.parse_expr_or()?,
             expr_and: self.parse_expr_and_lr()?,
+            semantic_type: None,
         }))
     }
 
@@ -155,6 +170,7 @@ impl Parser {
         Ok(Some(Box::new(ExpressionAndRightNode {
             expr_or: self.parse_expr_or()?,
             expr_and: self.parse_expr_and_lr()?,
+            semantic_type: None,
         })))
     }
 
@@ -162,6 +178,7 @@ impl Parser {
         Ok(Some(Box::new(ExpressionOrNode {
             expr_case: self.parse_expr_case()?,
             expr_or: self.parse_expr_or_lr()?,
+            semantic_type: None,
         })))
     }
 
@@ -176,6 +193,7 @@ impl Parser {
         Ok(Some(Box::new(ExpressionOrRightNode {
             expr_case: self.parse_expr_case()?,
             expr_or: self.parse_expr_or_lr()?,
+            semantic_type: None,
         })))
     }
 
@@ -187,6 +205,7 @@ impl Parser {
             let _result = Box::new(ExpressionCaseNode {
                 expr_and: Some(self.parse_expr_and()?),
                 func: None,
+                semantic_type: None,
             });
 
             // consume )
@@ -204,6 +223,7 @@ impl Parser {
         Ok(Some(Box::new(ExpressionCaseNode {
             expr_and: None,
             func: Some(self.parse_func()?),
+            semantic_type: None,
         })))
     }
 
@@ -216,6 +236,7 @@ impl Parser {
                 name: name.content.unwrap(),
                 is_use: true,
                 args: None,
+                semantic_type: None,
             }));
         }
 
@@ -230,6 +251,7 @@ impl Parser {
                 name: name.content.unwrap(),
                 is_use: false,
                 args: None,
+                semantic_type: None,
             }));
         }
 
@@ -246,6 +268,7 @@ impl Parser {
             name: name.content.unwrap(),
             is_use: false,
             args: Some(args),
+            semantic_type: None,
         }))
     }
 
@@ -259,6 +282,7 @@ impl Parser {
                     value: Some(co.content.unwrap()),
                     expr_and: None,
                     next_args: None,
+                    semantic_type: None,
                 }));
             }
 
@@ -269,6 +293,7 @@ impl Parser {
                 value: Some(co.content.unwrap()),
                 expr_and: None,
                 next_args: Some(self.parse_args()?),
+                semantic_type: None,
             }));
         }
 
@@ -279,6 +304,7 @@ impl Parser {
                 value: None,
                 expr_and: Some(expr_and),
                 next_args: None,
+                semantic_type: None,
             }));
         }
 
@@ -289,6 +315,7 @@ impl Parser {
             value: None,
             expr_and: Some(expr_and),
             next_args: Some(self.parse_args()?),
+            semantic_type: None,
         }))
     }
 }

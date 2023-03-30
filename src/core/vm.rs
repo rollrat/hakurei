@@ -87,8 +87,8 @@ impl VirtualMachine {
         title_index: TitleIndex,
         category_index: CategoryIndex,
     ) -> Result<Self, Box<dyn Error>> {
-        let root = Parser::from(command).parse()?;
-        let semantic_type = check_semantic(&root)?;
+        let mut root = Parser::from(command).parse()?;
+        let semantic_type = check_semantic(&mut root)?;
 
         Ok(VirtualMachine {
             root: root,
@@ -131,9 +131,7 @@ impl VirtualMachine {
                 _ => panic!("unreachable"),
             };
 
-            l_value.append(&mut r_value);
-
-            RuntimeObject::Array(l_value)
+            todo!()
         }
     }
 
@@ -142,7 +140,33 @@ impl VirtualMachine {
     }
 
     fn visit_expr_or(&self, node: &ExpressionOrNode) -> RuntimeObject {
-        todo!()
+        let l_value = match &node.expr_case {
+            Some(node) => self.visit_expr_case(&node),
+            None => RuntimeObject::None,
+        };
+
+        let r_value = match &node.expr_or {
+            Some(node) => self.visit_expr_or_lr(&node),
+            None => RuntimeObject::None,
+        };
+
+        if r_value.eq(&RuntimeObject::None) {
+            r_value
+        } else {
+            let mut l_value = match l_value {
+                RuntimeObject::Array(e) => e,
+                _ => panic!("unreachable"),
+            };
+
+            let mut r_value = match r_value {
+                RuntimeObject::Array(e) => e,
+                _ => panic!("unreachable"),
+            };
+
+            l_value.append(&mut r_value);
+
+            RuntimeObject::Array(l_value)
+        }
     }
 
     fn visit_expr_or_lr(&self, node: &ExpressionOrRightNode) -> RuntimeObject {
