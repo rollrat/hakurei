@@ -24,7 +24,7 @@ pub struct Instruction {
 }
 
 impl Instruction {
-    fn to_string(&self) -> String {
+    pub fn to_string(&self) -> String {
         match self.inst_type {
             InstructionType::FunctionCall => format!(
                 "{}({})",
@@ -37,7 +37,7 @@ impl Instruction {
         }
     }
 
-    fn params_to_string(&self) -> String {
+    pub fn params_to_string(&self) -> String {
         if self.params.is_none() {
             String::from("{}")
         } else {
@@ -80,7 +80,7 @@ impl IRBuilder {
         head_inst
     }
 
-    fn ir_flatten(head_inst: &Instruction) -> Vec<&Instruction> {
+    pub fn ir_flatten(head_inst: &Instruction) -> Vec<&Instruction> {
         let mut insts: Vec<&Instruction> = Vec::new();
         let mut dq: VecDeque<&Instruction> = VecDeque::new();
 
