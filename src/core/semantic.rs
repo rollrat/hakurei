@@ -315,6 +315,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 param_check_lazy_1(node, &SemanticType::Array(Box::new(SemanticType::None)));
 
             if let Ok(_) = check_is_array {
+                node.semantic_type = Some(SemanticType::Primitive(SemanticPrimitiveType::Integer));
                 return Ok(SemanticType::Primitive(SemanticPrimitiveType::Integer));
             }
 
@@ -322,6 +323,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 param_check_lazy_1(node, &SemanticType::Set(Box::new(SemanticType::None)));
 
             if let Ok(_) = check_is_set {
+                node.semantic_type = Some(SemanticType::Primitive(SemanticPrimitiveType::Integer));
                 return Ok(SemanticType::Primitive(SemanticPrimitiveType::Integer));
             }
 

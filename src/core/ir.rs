@@ -268,8 +268,9 @@ mod tests {
     #[test]
     fn ir_build_test() {
         // let target = "set(reduce(title:contains(\"동방\"), category))";
-        let target =
-            "group_sum(reduce(title:startswith(\"서든\") & title:endswith(\"어택\"), category))";
+        let target = "count(set(reduce(title:contains(\"동방\"), category)))";
+        // let target =
+        //     "group_sum(reduce(title:startswith(\"서든\") & title:endswith(\"어택\"), category))";
         let irb = IRBuilder::from(target).unwrap();
 
         let head_inst = irb.build();
