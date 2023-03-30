@@ -176,6 +176,7 @@ fn visit_expr_and(node: &mut ExpressionAndNode) -> Result<SemanticType, Box<dyn 
     };
 
     if r_type.eq(&SemanticType::None) {
+        node.semantic_type = Some(l_type.clone());
         return Ok(l_type);
     }
 
@@ -200,6 +201,7 @@ fn visit_expr_and_lr(node: &mut ExpressionAndRightNode) -> Result<SemanticType, 
     };
 
     if r_type.eq(&SemanticType::None) {
+        node.semantic_type = Some(l_type.clone());
         return Ok(l_type);
     }
 
@@ -224,6 +226,7 @@ fn visit_expr_or(node: &mut ExpressionOrNode) -> Result<SemanticType, Box<dyn Er
     };
 
     if r_type.eq(&SemanticType::None) {
+        node.semantic_type = Some(l_type.clone());
         return Ok(l_type);
     }
 
@@ -248,6 +251,7 @@ fn visit_expr_or_lr(node: &mut ExpressionOrRightNode) -> Result<SemanticType, Bo
     };
 
     if r_type.eq(&SemanticType::None) {
+        node.semantic_type = Some(l_type.clone());
         return Ok(l_type);
     }
 
@@ -262,7 +266,13 @@ fn visit_expr_or_lr(node: &mut ExpressionOrRightNode) -> Result<SemanticType, Bo
 
 fn visit_expr_case(node: &mut ExpressionCaseNode) -> Result<SemanticType, Box<dyn Error>> {
     if let Some(expr_and) = &mut node.expr_and {
-        return visit_expr_and(expr_and);
+        let result = visit_expr_and(expr_and);
+
+        if let Ok(e) = &result {
+            node.semantic_type = Some(e.clone()); 
+        }
+
+        return result;
     }
 
     let result = visit_func(node.func.as_mut().unwrap());
@@ -276,6 +286,7 @@ fn visit_expr_case(node: &mut ExpressionCaseNode) -> Result<SemanticType, Box<dy
 
 fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn Error>> {
     if node.is_use {
+        node.semantic_type = Some(SemanticType::Primitive(SemanticPrimitiveType::Function));
         return Ok(SemanticType::Primitive(SemanticPrimitiveType::Function));
     }
 
@@ -288,7 +299,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
     // map(<Array<T>>, (T) => F) => Array<F>
     //    -> select_max_len := (<Array<T> | Set<T>>) => T
     //    -> select_min_len := (<Array<T> | Set<T>>) => T
-   let result = match &node.name[..] {
+    let result = match &node.name[..] {
         "title:contains" | "title:startswith" | "title:endswith" => {
             param_check_lazy_1(
                 node,
@@ -400,7 +411,6 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
         node.semantic_type = Some(e.clone()); 
     }
 
-
     result
 }
 
@@ -429,6 +439,7 @@ fn param_check_lazy_1(
             Some(_) => Err(format!("'{}' function must have one parameter!", &node.name).into()),
             None => {
                 if param_type_eq_generic(args, target_type)? {
+                    args.semantic_type = Some(target_type.clone());
                     Ok(())
                 } else {
                     Err(format!(
@@ -464,7 +475,7 @@ fn param_check_lazy_2(
         }
 
         match &mut args_first.next_args {
-            Some(args_second) => match &args_second.next_args {
+            Some(args_second) => match &mut args_second.next_args {
                 Some(_) => {
                     Err(format!("'{}' function must have two parameters!", &node.name).into())
                 }
@@ -478,6 +489,7 @@ fn param_check_lazy_2(
                         )
                         .into())
                     } else {
+                        args_second.semantic_type = Some(second_target_type.clone());
                         Ok(())
                     }
                 }
