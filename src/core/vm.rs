@@ -1,187 +1,88 @@
-use std::{error::Error, process::Command};
+use std::collections::{HashMap, HashSet};
 
-use crate::index::{category::CategoryIndex, title::TitleIndex};
-
-use super::{
-    parser::{
-        ArgumentsNode, CommandExpressionNode, ExpressionAndNode, ExpressionAndRightNode,
-        ExpressionCaseNode, ExpressionOrNode, ExpressionOrRightNode, FunctionExpressionNode,
-        Parser,
-    },
-    semantic::{check_semantic, SemanticType},
+use crate::{
+    index::{category::CategoryIndex, title::TitleIndex},
+    model::article::Article,
 };
 
-#[derive(PartialEq, Debug)]
-pub enum RuntimePrimitiveObject {
-    Article(String),  // article title
-    Category(String), // category name
-    Integer(usize),
+use super::ir::Instruction;
+
+#[derive(Clone, Debug)]
+pub enum RuntimeVariableAbstractPrimitiveData<'a> {
+    Article(&'a Article),
+    Category(&'a str),
+    Integer(i64),
     String(String),
-    Function,
+    Function(String),
 }
 
-#[derive(Debug)]
-pub enum RuntimeObject {
+#[derive(Clone, Debug)]
+pub enum RuntimeVariableAbstractData<'a> {
     None,
-    Primitive(RuntimePrimitiveObject),
-    Array(Vec<Box<RuntimeObject>>),
-    Set(Vec<Box<RuntimeObject>>),
-    Tuple(Vec<Box<RuntimeObject>>),
+    Primitive(RuntimeVariableAbstractPrimitiveData<'a>),
+    Array(Box<Vec<RuntimeVariableAbstractData<'a>>>),
+    Set(Box<HashSet<RuntimeVariableAbstractData<'a>>>),
+    Tuple(Vec<Box<RuntimeVariableAbstractData<'a>>>),
 }
 
-impl RuntimeObject {
-    fn eq(&self, other: &RuntimeObject) -> bool {
-        match self {
-            RuntimeObject::None => match other {
-                RuntimeObject::None => true,
-                _ => false,
-            },
-            RuntimeObject::Primitive(e) => match other {
-                RuntimeObject::Primitive(o) => true,
-                _ => false,
-            },
-            RuntimeObject::Array(e) => match other {
-                RuntimeObject::Array(o) => true,
-                _ => false,
-            },
-            RuntimeObject::Set(e) => match other {
-                RuntimeObject::Set(o) => true,
-                _ => false,
-            },
-            RuntimeObject::Tuple(e) => match other {
-                RuntimeObject::Tuple(o) => {
-                    e.len() == o.len() && e.iter().zip(o).all(|(x, y)| x.eq(y))
-                }
-                _ => false,
-            },
-        }
-    }
+#[derive(Clone, Debug)]
+pub struct RuntimeVariable<'a> {
+    inst: &'a Instruction,
+    pub data: RuntimeVariableAbstractData<'a>,
 }
 
-pub struct VirtualMachine {
-    root: CommandExpressionNode,
-    title_index: TitleIndex,
-    category_index: CategoryIndex,
-    return_type: SemanticType,
+pub struct RuntimeRef<'a> {
+    category_index: &'a CategoryIndex,
+    title_index: &'a TitleIndex,
 }
 
-impl RuntimeObject {
-    pub fn print_type(&self) {
-        println!("{:?}", self);
-    }
-
-    pub fn print(&self) {
-        match self {
-            RuntimeObject::None => todo!(),
-            RuntimeObject::Primitive(_) => todo!(),
-            RuntimeObject::Array(_) => todo!(),
-            RuntimeObject::Set(_) => todo!(),
-            RuntimeObject::Tuple(_) => todo!(),
-        }
-    }
+pub struct VirtualMachine<'a> {
+    insts: Vec<&'a Instruction>,
 }
 
-impl VirtualMachine {
-    pub fn from(
-        command: &str,
-        title_index: TitleIndex,
-        category_index: CategoryIndex,
-    ) -> Result<Self, Box<dyn Error>> {
-        let mut root = Parser::from(command).parse()?;
-        let semantic_type = check_semantic(&mut root)?;
-
-        Ok(VirtualMachine {
-            root: root,
-            title_index: title_index,
-            category_index: category_index,
-            return_type: semantic_type,
-        })
+impl VirtualMachine<'_> {
+    pub fn from(insts: Vec<&Instruction>) -> VirtualMachine {
+        VirtualMachine { insts: insts }
     }
 
-    // this operation do not ocurred error, except memory allocation
-    pub fn run(&self) -> RuntimeObject {
-        self.visit_root(&self.root)
+    pub fn run<'a>(&'a self, reference: RuntimeRef) -> RuntimeVariable<'a> {
+        let mut rt_var: HashMap<usize, RuntimeVariable<'a>> = HashMap::new();
+
+        self.insts.iter().for_each(|&inst| {
+            rt_var.insert(inst.id, self.eval_inst(&reference, inst));
+        });
+
+        // safe unwrap thank to semantic analysis
+        rt_var.get(&self.insts.last().unwrap().id).unwrap().clone()
     }
 
-    fn visit_root(&self, node: &CommandExpressionNode) -> RuntimeObject {
-        self.visit_expr_and(&node.expr_and)
-    }
-
-    fn visit_expr_and(&self, node: &ExpressionAndNode) -> RuntimeObject {
-        let l_value = match &node.expr_or {
-            Some(node) => self.visit_expr_or(&node),
-            None => RuntimeObject::None,
-        };
-
-        let r_value = match &node.expr_and {
-            Some(node) => self.visit_expr_and_lr(&node),
-            None => RuntimeObject::None,
-        };
-
-        if r_value.eq(&RuntimeObject::None) {
-            r_value
-        } else {
-            let mut l_value = match l_value {
-                RuntimeObject::Array(e) => e,
-                _ => panic!("unreachable"),
-            };
-
-            let mut r_value = match r_value {
-                RuntimeObject::Array(e) => e,
-                _ => panic!("unreachable"),
-            };
-
-            todo!()
+    fn eval_inst(&self, reference: &RuntimeRef, inst: &Instruction) -> RuntimeVariable {
+        match inst.inst_type {
+            crate::core::ir::InstructionType::FunctionCall => self.eval_func(reference, inst),
+            crate::core::ir::InstructionType::UseFunction => self.eval_use_func(reference, inst),
+            crate::core::ir::InstructionType::Intercross => self.eval_intercross(reference, inst),
+            crate::core::ir::InstructionType::Concat => self.eval_concat(reference, inst),
+            crate::core::ir::InstructionType::Constant => self.eval_constant(reference, inst),
         }
     }
 
-    fn visit_expr_and_lr(&self, node: &ExpressionAndRightNode) -> RuntimeObject {
+    fn eval_func(&self, reference: &RuntimeRef, inst: &Instruction) -> RuntimeVariable {
         todo!()
     }
 
-    fn visit_expr_or(&self, node: &ExpressionOrNode) -> RuntimeObject {
-        let l_value = match &node.expr_case {
-            Some(node) => self.visit_expr_case(&node),
-            None => RuntimeObject::None,
-        };
-
-        let r_value = match &node.expr_or {
-            Some(node) => self.visit_expr_or_lr(&node),
-            None => RuntimeObject::None,
-        };
-
-        if r_value.eq(&RuntimeObject::None) {
-            r_value
-        } else {
-            let mut l_value = match l_value {
-                RuntimeObject::Array(e) => e,
-                _ => panic!("unreachable"),
-            };
-
-            let mut r_value = match r_value {
-                RuntimeObject::Array(e) => e,
-                _ => panic!("unreachable"),
-            };
-
-            l_value.append(&mut r_value);
-
-            RuntimeObject::Array(l_value)
-        }
-    }
-
-    fn visit_expr_or_lr(&self, node: &ExpressionOrRightNode) -> RuntimeObject {
+    fn eval_use_func(&self, reference: &RuntimeRef, inst: &Instruction) -> RuntimeVariable {
         todo!()
     }
 
-    fn visit_expr_case(&self, node: &ExpressionCaseNode) -> RuntimeObject {
+    fn eval_intercross(&self, reference: &RuntimeRef, inst: &Instruction) -> RuntimeVariable {
         todo!()
     }
 
-    fn visit_func(&self, node: &FunctionExpressionNode) -> RuntimeObject {
+    fn eval_concat(&self, reference: &RuntimeRef, inst: &Instruction) -> RuntimeVariable {
         todo!()
     }
 
-    fn visit_args(&self, node: &ArgumentsNode) -> RuntimeObject {
+    fn eval_constant(&self, reference: &RuntimeRef, inst: &Instruction) -> RuntimeVariable {
         todo!()
     }
 }

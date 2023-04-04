@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, error::Error, process::id};
+use std::{collections::VecDeque, error::Error};
 
 use super::{
     parser::*,
@@ -16,11 +16,11 @@ pub enum InstructionType {
 
 #[derive(Debug)]
 pub struct Instruction {
-    id: usize,
-    inst_type: InstructionType,
-    semantic_type: SemanticType,
-    data: Option<String>,
-    params: Option<Vec<Box<Instruction>>>,
+    pub id: usize,
+    pub inst_type: InstructionType,
+    pub semantic_type: SemanticType,
+    pub data: Option<String>,
+    pub params: Option<Vec<Box<Instruction>>>,
 }
 
 impl Instruction {

@@ -96,6 +96,12 @@ count(_) => usize
 map(_, select_max_len) => CategoryArray
 ```
 
+### Optimizing
+
+- [ ] Variable Consume
+- [ ] Constant Folding
+- [ ] Common Expression Elimination
+
 ## Namuwiki Parser
 
 At least 32gb of memory is required to use this feature.
