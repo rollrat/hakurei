@@ -1,4 +1,5 @@
 use std::{
+    cmp::Ordering,
     collections::HashMap,
     error::Error,
     fs,
@@ -10,6 +11,13 @@ use crate::model::article::Article;
 pub struct TitleIndex {
     map: HashMap<String, Vec<usize>>,
     file: fs::File,
+}
+
+pub enum TitleIndexFindOption {
+    Extact,
+    Contains,
+    StartsWith,
+    EndsWith,
 }
 
 impl TitleIndex {
@@ -61,5 +69,21 @@ impl TitleIndex {
             }
             None => None,
         }
+    }
+
+    pub fn find_by(&self, what: &str, option: TitleIndexFindOption) -> Vec<&String> {
+        self.map
+            .keys()
+            .filter(|x| match option {
+                TitleIndexFindOption::Extact => what.cmp(x) == Ordering::Equal,
+                TitleIndexFindOption::Contains => x.contains(what),
+                TitleIndexFindOption::StartsWith => x.starts_with(what),
+                TitleIndexFindOption::EndsWith => x.ends_with(what),
+            })
+            .collect()
+    }
+
+    pub fn find_one_by(&self, what: &str) -> Option<&String> {
+        self.map.keys().find(|x| what.cmp(x) == Ordering::Equal)
     }
 }
