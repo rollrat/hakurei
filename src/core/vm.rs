@@ -78,10 +78,9 @@ impl VirtualMachine<'_> {
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         match inst.inst_type {
             InstructionType::FunctionCall => self.eval_func(env, inst),
-            InstructionType::UseFunction => self.eval_use_func(env, inst),
             InstructionType::Intercross => self.eval_intercross(env, inst),
             InstructionType::Concat => self.eval_concat(env, inst),
-            InstructionType::Constant => self.eval_constant(env, inst),
+            _ => unreachable!(),
         }
     }
 
@@ -120,14 +119,6 @@ impl VirtualMachine<'_> {
         }
     }
 
-    fn eval_use_func<'a>(
-        &self,
-        env: &RuntimeEnvironment,
-        inst: &'a Instruction,
-    ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
-        todo!()
-    }
-
     fn eval_intercross<'a>(
         &self,
         env: &RuntimeEnvironment,
@@ -137,14 +128,6 @@ impl VirtualMachine<'_> {
     }
 
     fn eval_concat<'a>(
-        &self,
-        env: &RuntimeEnvironment,
-        inst: &'a Instruction,
-    ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
-        todo!()
-    }
-
-    fn eval_constant<'a>(
         &self,
         env: &RuntimeEnvironment,
         inst: &'a Instruction,
@@ -216,6 +199,15 @@ impl VirtualMachine<'_> {
             }
             _ => unreachable!(),
         }
+    }
+
+    // transform to set any variables
+    fn eval_func_set<'a>(
+        &self,
+        env: &RuntimeEnvironment,
+        inst: &'a Instruction,
+    ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
+        todo!()
     }
 }
 
