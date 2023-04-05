@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     index::{
-        category::{self, CategoryIndex},
+        category::CategoryIndex,
         title::{TitleIndex, TitleIndexFindOption},
     },
     model::article::Article,
@@ -112,7 +112,23 @@ impl VirtualMachine<'_> {
         env: &RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
-        todo!()
+        let mut result: Vec<RuntimeVariableAbstractData> = Vec::new();
+
+        inst.params.as_ref().unwrap().iter().for_each(|x| {
+            match &var[&x.id].data {
+                RuntimeVariableAbstractData::Array(e) => {
+                    e.as_ref().iter().for_each(|x| {
+                        result.push(x.clone());
+                    });
+                }
+                _ => unreachable!(),
+            };
+        });
+
+        Ok(RuntimeVariable {
+            inst: inst,
+            data: RuntimeVariableAbstractData::Array(Box::new(result)),
+        })
     }
 
     fn eval_func_title<'a>(
@@ -303,32 +319,20 @@ impl VirtualMachine<'_> {
                         let result = e
                             .as_ref()
                             .iter()
-                            .filter(|x| match x {
-                                RuntimeVariableAbstractData::Primitive(y) => match y {
-                                    RuntimeVariableAbstractPrimitiveData::Article(_) => true,
-                                    _ => false,
-                                },
-                                _ => false,
-                            })
-                            .map(|x| match x {
+                            .filter_map(|x| match x {
                                 RuntimeVariableAbstractData::Primitive(y) => match y {
                                     RuntimeVariableAbstractPrimitiveData::Article(article) => {
-                                        article
+                                        reference.title_index.get(&article.title).or(reference
+                                            .title_index
+                                            .get_no_redirect(&article.title))
                                     }
-                                    _ => unreachable!(),
+                                    _ => None,
                                 },
-                                _ => unreachable!(),
+                                _ => None,
                             })
-                            .map(|article| {
-                                reference
-                                    .title_index
-                                    .get(&article.title)
-                                    .or(reference.title_index.get_no_redirect(&article.title))
+                            .filter_map(|x| {
+                                Some(&reference.category_index.get(&x.title)?.get(0)?[..])
                             })
-                            .map(|x| reference.category_index.get(&x.unwrap().title))
-                            .filter(|x| x.is_some())
-                            .filter(|x| x.unwrap().len() > 0)
-                            .map(|x| &x.unwrap()[0][..])
                             .map(|x| {
                                 RuntimeVariableAbstractData::Primitive(
                                     RuntimeVariableAbstractPrimitiveData::Category(x),
