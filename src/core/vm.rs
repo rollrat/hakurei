@@ -103,7 +103,31 @@ impl VirtualMachine<'_> {
         env: &RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
-        todo!()
+        let mut intersection_count: HashMap<&RuntimeVariableAbstractData, usize> = HashMap::new();
+
+        inst.params.as_ref().unwrap().iter().for_each(|x| {
+            match &var[&x.id].data {
+                RuntimeVariableAbstractData::Array(e) => {
+                    e.as_ref().iter().for_each(|x| {
+                        *intersection_count.entry(x).or_default() += 1;
+                    });
+                }
+                _ => unreachable!(),
+            };
+        });
+
+        let max_count = inst.params.as_ref().unwrap().len();
+
+        let result: Vec<RuntimeVariableAbstractData> = intersection_count
+            .iter()
+            .filter(|x| *x.1 == max_count)
+            .map(|x| (*x.0).clone())
+            .collect();
+
+        Ok(RuntimeVariable {
+            inst,
+            data: RuntimeVariableAbstractData::Array(Box::new(result)),
+        })
     }
 
     fn eval_concat<'a>(
@@ -441,6 +465,29 @@ mod tests {
             RuntimeVariableAbstractData::Array(_) => true,
             _ => false,
         });
+    }
+
+    #[test]
+    fn vm_intercross_test() {
+        let target = "count(title:contains(\"동방\") & title:contains(\"프로젝트\") )";
+        let irb = IRBuilder::from(target).unwrap();
+
+        let head_inst = irb.build();
+        let insts = IRBuilder::ir_flatten(&head_inst);
+
+        let vm = VirtualMachine::from(insts);
+
+        let tindex = TitleIndex::load(DEFAULT_DUMP_PATH, DEFAULT_TITLE_INDEX_PATH).unwrap();
+        let cindex = CategoryIndex::load(DEFAULT_CATEGORY_INDEX_PATH).unwrap();
+
+        let rt_ref = RuntimeRef {
+            category_index: &cindex,
+            title_index: &tindex,
+        };
+
+        let result = vm.run(&rt_ref).unwrap();
+
+        assert_eq!(_uncover_integer(&result), 213);
     }
 
     fn _uncover_integer(rt_var: &RuntimeVariable) -> i64 {
