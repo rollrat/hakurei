@@ -8,7 +8,7 @@ Namuwiki Stream Pipeline Filter
 
 - Search
 
-  - [ ] Title Search
+  - [x] Title Search
   - [ ] Title Fuzzy Search
   - [ ] Body Search
   - [ ] Body Fuzzy Search (ELK Like)
@@ -100,7 +100,7 @@ map(_, select_max_len) => CategoryArray
 
 - [ ] Variable Consume
 - [ ] Constant Folding
-- [ ] Common Expression Elimination
+- [ ] Common Expression
 
 ## Namuwiki Parser
 
