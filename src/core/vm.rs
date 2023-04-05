@@ -86,22 +86,7 @@ impl VirtualMachine<'_> {
             "title" | "title:contains" | "title:statswith" | "title:endswith" => {
                 self.eval_func_title(var, reference, inst)
             }
-            "count" => {
-                let var = var.get(&inst.params.as_ref().unwrap()[0].id).unwrap();
-
-                let result = match &var.data {
-                    RuntimeVariableAbstractData::Array(e) => e.len(),
-                    RuntimeVariableAbstractData::Set(e) => e.len(),
-                    _ => unreachable!(),
-                };
-
-                Ok(RuntimeVariable {
-                    inst,
-                    data: RuntimeVariableAbstractData::Primitive(
-                        RuntimeVariableAbstractPrimitiveData::Integer(result as i64),
-                    ),
-                })
-            }
+            "count" => self.eval_func_count(var, reference, inst),
             "set" => self.eval_func_set(var, reference, inst),
             "group_sum" => todo!(),
             "reduce" => todo!(),
@@ -194,6 +179,28 @@ impl VirtualMachine<'_> {
         }
     }
 
+    fn eval_func_count<'a>(
+        &self,
+        var: &HashMap<usize, RuntimeVariable<'a>>,
+        reference: &RuntimeRef,
+        inst: &'a Instruction,
+    ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
+        let var = var.get(&inst.params.as_ref().unwrap()[0].id).unwrap();
+
+        let result = match &var.data {
+            RuntimeVariableAbstractData::Array(e) => e.len(),
+            RuntimeVariableAbstractData::Set(e) => e.len(),
+            _ => unreachable!(),
+        };
+
+        Ok(RuntimeVariable {
+            inst,
+            data: RuntimeVariableAbstractData::Primitive(
+                RuntimeVariableAbstractPrimitiveData::Integer(result as i64),
+            ),
+        })
+    }
+
     // transform array to set
     fn eval_func_set<'a>(
         &self,
@@ -223,6 +230,15 @@ impl VirtualMachine<'_> {
             inst,
             data: RuntimeVariableAbstractData::Set(Box::new(result)),
         })
+    }
+
+    fn eval_func_group_sum<'a>(
+        &self,
+        var: &HashMap<usize, RuntimeVariable<'a>>,
+        reference: &RuntimeRef,
+        inst: &'a Instruction,
+    ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
+        todo!()
     }
 }
 
