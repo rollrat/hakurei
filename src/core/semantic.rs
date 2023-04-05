@@ -300,7 +300,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
     //    -> select_max_len := (<Array<T> | Set<T>>) => T
     //    -> select_min_len := (<Array<T> | Set<T>>) => T
     let result = match &node.name[..] {
-        "title:contains" | "title:startswith" | "title:endswith" => {
+        "title:exact" | "title:contains" | "title:startswith" | "title:endswith" => {
             param_check_lazy_1(
                 node,
                 &SemanticType::Primitive(SemanticPrimitiveType::String),
