@@ -8,7 +8,7 @@ mod tests {
 
     use crate::{loader, model};
 
-    const DUMP_PATH: &str = "namuwiki_202103012.json";
+    const DUMP_PATH: &str = "namuwiki_20210301.json";
 
     #[test]
     fn split_json_file() {
@@ -138,7 +138,7 @@ mod tests {
 
     #[test]
     fn create_title_index() {
-        let fs = fs::read_to_string("namuwiki_202103012.json").unwrap();
+        let fs = fs::read_to_string("namuwiki_20210301.json").unwrap();
         let re = Regex::new("\"title\":\"(.*?)\"").unwrap();
 
         let mut result: HashMap<&str, Vec<usize>> = HashMap::new();

@@ -5,7 +5,7 @@ pub mod model;
 
 use crate::index::{category::CategoryIndex, title::TitleIndex};
 
-const DEFAULT_DUMP_PATH: &str = "namuwiki_202103012.json";
+const DEFAULT_DUMP_PATH: &str = "namuwiki_20210301.json";
 const DEFAULT_TITLE_INDEX_PATH: &str = "title-index.json";
 const DEFAULT_CATEGORY_INDEX_PATH: &str = "article-with-categories.json";
 
