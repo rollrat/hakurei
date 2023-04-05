@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use super::article_category::ArticleCategory;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct Article {
     pub title: String,
     pub text: String,
