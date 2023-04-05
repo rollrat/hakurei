@@ -28,7 +28,7 @@ pub enum RuntimeVariableAbstractData<'a> {
     Primitive(RuntimeVariableAbstractPrimitiveData<'a>),
     Array(Box<Vec<RuntimeVariableAbstractData<'a>>>),
     Set(Box<Vec<RuntimeVariableAbstractData<'a>>>),
-    Tuple(Vec<Box<RuntimeVariableAbstractData<'a>>>),
+    Tuple(Vec<RuntimeVariableAbstractData<'a>>),
 }
 
 #[derive(Clone, Debug)]
@@ -88,7 +88,7 @@ impl VirtualMachine<'_> {
             }
             "count" => self.eval_func_count(var, reference, inst),
             "set" => self.eval_func_set(var, reference, inst),
-            "group_sum" => todo!(),
+            "group_sum" => self.eval_func_group_sum(var, reference, inst),
             "reduce" => todo!(),
             _ => unreachable!(),
         }
@@ -238,7 +238,46 @@ impl VirtualMachine<'_> {
         reference: &RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
-        todo!()
+        let mut group_map_index: HashMap<&RuntimeVariableAbstractData, usize> = HashMap::new();
+        let mut group_map_count: HashMap<usize, usize> = HashMap::new();
+
+        match &var[&inst.params.as_ref().unwrap()[0].id].data {
+            RuntimeVariableAbstractData::Array(e) => {
+                for (i, e) in e.iter().enumerate() {
+                    let index = group_map_index.entry(e).or_insert(i);
+                    *group_map_count.entry(*index).or_default() += 1;
+                }
+            }
+            _ => unreachable!(),
+        };
+
+        let mut result: Vec<RuntimeVariableAbstractData> = Vec::new();
+
+        match &var[&inst.params.as_ref().unwrap()[0].id].data {
+            RuntimeVariableAbstractData::Array(e) => {
+                for (i, e) in e.iter().enumerate() {
+                    if group_map_index[e] == i {
+                        let tuple_left = e.clone();
+                        let tuple_right = RuntimeVariableAbstractData::Primitive(
+                            RuntimeVariableAbstractPrimitiveData::Integer(
+                                group_map_count[&i] as i64,
+                            ),
+                        );
+
+                        result.push(RuntimeVariableAbstractData::Tuple(vec![
+                            tuple_left,
+                            tuple_right,
+                        ]));
+                    }
+                }
+            }
+            _ => unreachable!(),
+        }
+
+        Ok(RuntimeVariable {
+            inst,
+            data: RuntimeVariableAbstractData::Array(Box::new(result)),
+        })
     }
 }
 
@@ -301,6 +340,32 @@ mod tests {
 
         assert!(match result.data {
             RuntimeVariableAbstractData::Set(_) => true,
+            _ => false,
+        });
+    }
+
+    #[test]
+    fn vm_group_sum_test() {
+        let target = "group_sum(reduce(title:contains(\"동방\"), category))";
+        let irb = IRBuilder::from(target).unwrap();
+
+        let head_inst = irb.build();
+        let insts = IRBuilder::ir_flatten(&head_inst);
+
+        let vm = VirtualMachine::from(insts);
+
+        let tindex = TitleIndex::load(DEFAULT_DUMP_PATH, DEFAULT_TITLE_INDEX_PATH).unwrap();
+        let cindex = CategoryIndex::load(DEFAULT_CATEGORY_INDEX_PATH).unwrap();
+
+        let rt_ref = RuntimeRef {
+            category_index: &cindex,
+            title_index: &tindex,
+        };
+
+        let result = vm.run(rt_ref).unwrap();
+
+        assert!(match result.data {
+            RuntimeVariableAbstractData::Array(_) => true,
             _ => false,
         });
     }
