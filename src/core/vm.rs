@@ -5,7 +5,7 @@ use std::{
 
 use crate::{
     index::{
-        category::CategoryIndex,
+        category::{self, CategoryIndex},
         title::{TitleIndex, TitleIndexFindOption},
     },
     model::article::Article,
@@ -51,7 +51,10 @@ impl VirtualMachine<'_> {
         VirtualMachine { insts: insts }
     }
 
-    pub fn run<'a>(&'a self, reference: RuntimeRef) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
+    pub fn run<'a>(
+        &'a self,
+        reference: &'a RuntimeRef,
+    ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         let mut rt_var: HashMap<usize, RuntimeVariable<'a>> = HashMap::new();
 
         for inst in self.insts.iter() {
@@ -65,7 +68,7 @@ impl VirtualMachine<'_> {
     fn eval_inst<'a>(
         &self,
         var: &HashMap<usize, RuntimeVariable<'a>>,
-        reference: &RuntimeRef,
+        reference: &'a RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         match inst.inst_type {
@@ -79,7 +82,7 @@ impl VirtualMachine<'_> {
     fn eval_func<'a>(
         &self,
         var: &HashMap<usize, RuntimeVariable<'a>>,
-        reference: &RuntimeRef,
+        reference: &'a RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         match &inst.data.as_ref().unwrap()[..] {
@@ -89,7 +92,7 @@ impl VirtualMachine<'_> {
             "count" => self.eval_func_count(var, reference, inst),
             "set" => self.eval_func_set(var, reference, inst),
             "group_sum" => self.eval_func_group_sum(var, reference, inst),
-            "reduce" => todo!(),
+            "reduce" => self.eval_func_reduce(var, reference, inst),
             _ => unreachable!(),
         }
     }
@@ -279,6 +282,72 @@ impl VirtualMachine<'_> {
             data: RuntimeVariableAbstractData::Array(Box::new(result)),
         })
     }
+
+    fn eval_func_reduce<'a>(
+        &self,
+        var: &HashMap<usize, RuntimeVariable<'a>>,
+        reference: &'a RuntimeRef,
+        inst: &'a Instruction,
+    ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
+        match &inst.params.as_ref().unwrap()[1]
+            .as_ref()
+            .data
+            .as_ref()
+            .unwrap()[..]
+        {
+            "category" => {
+                let p1 = &var[&inst.params.as_ref().unwrap()[0].as_ref().id];
+
+                match &p1.data {
+                    RuntimeVariableAbstractData::Array(e) => {
+                        let result = e
+                            .as_ref()
+                            .iter()
+                            .filter(|x| match x {
+                                RuntimeVariableAbstractData::Primitive(y) => match y {
+                                    RuntimeVariableAbstractPrimitiveData::Article(_) => true,
+                                    _ => false,
+                                },
+                                _ => false,
+                            })
+                            .map(|x| match x {
+                                RuntimeVariableAbstractData::Primitive(y) => match y {
+                                    RuntimeVariableAbstractPrimitiveData::Article(article) => {
+                                        article
+                                    }
+                                    _ => unreachable!(),
+                                },
+                                _ => unreachable!(),
+                            })
+                            .map(|article| {
+                                reference
+                                    .title_index
+                                    .get(&article.title)
+                                    .or(reference.title_index.get_no_redirect(&article.title))
+                            })
+                            .map(|x| reference.category_index.get(&x.unwrap().title))
+                            .filter(|x| x.is_some())
+                            .filter(|x| x.unwrap().len() > 0)
+                            .map(|x| &x.unwrap()[0][..])
+                            .map(|x| {
+                                RuntimeVariableAbstractData::Primitive(
+                                    RuntimeVariableAbstractPrimitiveData::Category(x),
+                                )
+                            })
+                            .collect();
+
+                        Ok(RuntimeVariable {
+                            inst,
+                            data: RuntimeVariableAbstractData::Array(Box::new(result)),
+                        })
+                    }
+                    _ => unreachable!(),
+                }
+            }
+            "select_min_len" | "select_max_len" => todo!(),
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -313,7 +382,7 @@ mod tests {
             title_index: &tindex,
         };
 
-        let result = vm.run(rt_ref).unwrap();
+        let result = vm.run(&rt_ref).unwrap();
 
         assert_eq!(_uncover_integer(&result), 851);
     }
@@ -336,7 +405,7 @@ mod tests {
             title_index: &tindex,
         };
 
-        let result = vm.run(rt_ref).unwrap();
+        let result = vm.run(&rt_ref).unwrap();
 
         assert!(match result.data {
             RuntimeVariableAbstractData::Set(_) => true,
@@ -362,7 +431,7 @@ mod tests {
             title_index: &tindex,
         };
 
-        let result = vm.run(rt_ref).unwrap();
+        let result = vm.run(&rt_ref).unwrap();
 
         assert!(match result.data {
             RuntimeVariableAbstractData::Array(_) => true,
