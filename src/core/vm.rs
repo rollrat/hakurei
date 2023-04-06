@@ -310,6 +310,32 @@ impl VirtualMachine<'_> {
             _ => unreachable!(),
         }
 
+        result.sort_by(|x, y| {
+            let xx = match x {
+                RuntimeVariableAbstractData::Tuple(x) => match &x[1] {
+                    RuntimeVariableAbstractData::Primitive(e) => match e {
+                        RuntimeVariableAbstractPrimitiveData::Integer(e) => e,
+                        _ => unreachable!(),
+                    },
+                    _ => unreachable!(),
+                },
+                _ => unreachable!(),
+            };
+
+            let yy = match y {
+                RuntimeVariableAbstractData::Tuple(x) => match &x[1] {
+                    RuntimeVariableAbstractData::Primitive(e) => match e {
+                        RuntimeVariableAbstractPrimitiveData::Integer(e) => e,
+                        _ => unreachable!(),
+                    },
+                    _ => unreachable!(),
+                },
+                _ => unreachable!(),
+            };
+
+            yy.cmp(&xx)
+        });
+
         Ok(RuntimeVariable {
             inst,
             data: RuntimeVariableAbstractData::Array(Box::new(result)),
