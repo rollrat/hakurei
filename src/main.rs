@@ -8,6 +8,7 @@ use std::{env, process::exit};
 use crate::{
     core::{
         ir::IRBuilder,
+        printer::Printer,
         vm::{RuntimeRef, VirtualMachine},
     },
     index::{category::CategoryIndex, title::TitleIndex},
@@ -42,5 +43,7 @@ fn main() {
 
     let result = vm.run(&rt_ref).unwrap();
 
-    println!("{:#?}", result);
+    let mut printer = Printer::new();
+
+    println!("{}", printer.do_print(result));
 }

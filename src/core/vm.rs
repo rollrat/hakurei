@@ -19,7 +19,6 @@ pub enum RuntimeVariableAbstractPrimitiveData<'a> {
     Category(&'a str),
     Integer(i64),
     String(String),
-    Function(String),
 }
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
