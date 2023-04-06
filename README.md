@@ -21,10 +21,10 @@ Namuwiki Stream Pipeline Filter
 
 - Stream Pipeline
 
-  - [ ] Map
-  - [ ] Filter
-  - [ ] Union
-  - [ ] Substract
+  - [x] Map
+  - [x] Filter
+  - [x] Union
+  - [x] Substract
 
 - Etc
 
