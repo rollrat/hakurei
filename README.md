@@ -30,22 +30,6 @@ Namuwiki Stream Pipeline Filter
 
   - [ ] Wordcloud
 
-### Middle-end Data Type
-
-- Abstract
-
-  - Article `(Title, [Category], Text, [Contributor])`
-  - Category `(Name, [Article])`
-
-- Implementaion
-
-  - ArticleSet `({&Article})`
-  - ArticleArray `([&Article])`
-  - ArticleWithCountArray `([(&Article, Count)])`
-  - CategorySet `({&Category})`
-  - CategoryArray `([&Category])`
-  - CategoryWithCountArray `([(&Category, Count)])`
-
 ### Description
 
 ```
@@ -82,7 +66,7 @@ const         -> number
 
 #### Examples
 
-```
+```js
 1. group_sum(reduce(title:contains("동방"), category))
 title:contains("동방") => ArticleArray
 reduce(_, category)   => CategoryArray
@@ -96,11 +80,103 @@ count(_) => usize
 map(_, select_max_len) => CategoryArray
 ```
 
+### Middle-end Data Type
+
+- Abstract
+
+  - Article `(Title, [Category], Text, [Contributor])`
+  - Category `(Name, [Article])`
+
+- Implementaion
+
+  - ArticleSet `({&Article})`
+  - ArticleArray `([&Article])`
+  - ArticleWithCountArray `([(&Article, Count)])`
+  - CategorySet `({&Category})`
+  - CategoryArray `([&Category])`
+  - CategoryWithCountArray `([(&Category, Count)])`
+
+#### Type Inference Example
+
+```js
+1. group_sum(reduce(title:startswith("서든") & title:endswith("어택"), category))
+v2 = title:startswith("서든")     # Array(Primitive(Article))
+v4 = title:endswith("어택")       # Array(Primitive(Article))
+v5 = &(v2, v4)                   # Array(Primitive(Article))
+v7 = reduce(v5, ref("category")) # Array(Primitive(Category))
+v8 = group_sum(v7)               # Array(Tuple([Primitive(Category), Primitive(Integer)]))
+
+2. set(reduce(title:contains("동방"), category))
+v2 = title:contains("동방")       # Array(Primitive(Article))
+v4 = reduce(v2, ref("category")) # Array(Primitive(Category))
+v5 = set(v4)                     # Set(Primitive(Category))
+
+3. count(set(reduce(title:contains("동방"), category)))
+v2 = title:contains("동방")       # Array(Primitive(Article))
+v4 = reduce(v2, ref("category")) # Array(Primitive(Category))
+v5 = set(v4)                     # Set(Primitive(Category))
+v6 = count(v5)                   # Primitive(Integer)
+
+4. set(reduce(title:contains("다크소울"), category) & 
+       reduce(title:contains("엘든링"), category)) & 
+   set(reduce(title:contains("붕괴") | title:contains("원신"), category))
+v2 = title:contains("다크소울")      # Array(Primitive(Article))
+v6 = title:contains("엘든링")       # Array(Primitive(Article))
+v12 = title:contains("붕괴")        # Array(Primitive(Article))
+v14 = title:contains("원신")        # Array(Primitive(Article))
+v4 = reduce(v2, ref("category"))   # Array(Primitive(Category))
+v8 = reduce(v6, ref("category"))   # Array(Primitive(Category))
+v15 = |(v12, v14)                  # Array(Primitive(Article))
+v9 = &(v4, v8)                     # Array(Primitive(Category))
+v17 = reduce(v15, ref("category")) # Array(Primitive(Category))
+v10 = set(v9)                      # Set(Primitive(Category))
+v18 = set(v17)                     # Set(Primitive(Category))
+v19 = &(v10, v18)                  # Set(Primitive(Category))
+```
+
 ### Optimizing
 
 - [ ] Variable Consume
 - [ ] Constant Folding
 - [ ] Common Expression
+
+### Available Functions
+
+```rs
+title:*(<String>) => [Article]
+body:*(<String>) => [Article]
+count(<Array<T> | Set<T>>) => Integer
+set(<Array<T>>) => Set<T>
+array(<Set<T>>) => Array<T> // not yet
+group_sum(<Array<T>>) where T: Article | Category => Array<(T, Integer)>
+reduce(<Array<T>>, (T) => Array<F>) => Array<F> *flatten
+   -> category := (<Article>) => Array<Category>
+   -> select_max_len := (<Array<T> | Set<T>>) => T // not yet
+   -> select_min_len := (<Array<T> | Set<T>>) => T // not yet
+map(<Array<T>>, (T) => F) => Array<F>
+   -> redirect := (<Article>) => Article // not yet
+   -> unwrap_tuple1 := ((F, *)) => F, // not yet
+   -> unwrap_tuple2 := ((F, H, *)) => H, // not yet
+filter(<Array<T>>, (T) => bool) => Array<T>
+   -> title:*(<Article>) => bool // not yet
+   -> body:*(<Article>) => bool // not yet
+sort(<Array<T>>, (T) => i32) => Array<T>
+   -> array := (T, T) => i32 // not yet
+   -> tuple1 := ((F, *), (F, *)) where T: (F, *) => i32 // not yet
+   -> tuple2 := ((F, *), (F, *)) where T: (F, *) => i32 // not yet
+bind((T) => F, (F) => G, *, (H) => K) => K // not yet
+```
+
+```rs
+title
+title:exact
+title:contains
+title:startswith
+title:endswith
+body:contains
+body:menu_exists
+body:regex
+```
 
 ## Namuwiki Parser
 
