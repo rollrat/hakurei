@@ -38,8 +38,8 @@ pub struct RuntimeVariable<'a> {
 }
 
 pub struct RuntimeRef<'a> {
-    category_index: &'a CategoryIndex,
-    title_index: &'a TitleIndex,
+    pub category_index: &'a CategoryIndex,
+    pub title_index: &'a TitleIndex,
 }
 
 pub struct VirtualMachine<'a> {
