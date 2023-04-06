@@ -33,7 +33,7 @@ pub enum RuntimeVariableAbstractData<'a> {
 
 #[derive(Clone, Debug)]
 pub struct RuntimeVariable<'a> {
-    inst: &'a Instruction,
+    pub inst: &'a Instruction,
     pub data: RuntimeVariableAbstractData<'a>,
 }
 
@@ -73,8 +73,8 @@ impl VirtualMachine<'_> {
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         match inst.inst_type {
             InstructionType::FunctionCall => self.eval_func(var, reference, inst),
-            InstructionType::Intercross => self.eval_intercross(var, reference, inst),
-            InstructionType::Concat => self.eval_concat(var, reference, inst),
+            InstructionType::Intercross => self.eval_intercross(var, inst),
+            InstructionType::Concat => self.eval_concat(var, inst),
             _ => unreachable!(),
         }
     }
@@ -87,11 +87,11 @@ impl VirtualMachine<'_> {
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         match &inst.data.as_ref().unwrap()[..] {
             "title" | "title:contains" | "title:statswith" | "title:endswith" => {
-                self.eval_func_title(var, reference, inst)
+                self.eval_func_title(reference, inst)
             }
-            "count" => self.eval_func_count(var, reference, inst),
-            "set" => self.eval_func_set(var, reference, inst),
-            "group_sum" => self.eval_func_group_sum(var, reference, inst),
+            "count" => self.eval_func_count(var, inst),
+            "set" => self.eval_func_set(var, inst),
+            "group_sum" => self.eval_func_group_sum(var, inst),
             "reduce" => self.eval_func_reduce(var, reference, inst),
             _ => unreachable!(),
         }
@@ -100,7 +100,6 @@ impl VirtualMachine<'_> {
     fn eval_intercross<'a>(
         &self,
         var: &HashMap<usize, RuntimeVariable<'a>>,
-        env: &RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         let mut intersection_count: HashMap<&RuntimeVariableAbstractData, usize> = HashMap::new();
@@ -133,7 +132,6 @@ impl VirtualMachine<'_> {
     fn eval_concat<'a>(
         &self,
         var: &HashMap<usize, RuntimeVariable<'a>>,
-        env: &RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         let mut result: Vec<RuntimeVariableAbstractData> = Vec::new();
@@ -157,7 +155,6 @@ impl VirtualMachine<'_> {
 
     fn eval_func_title<'a>(
         &self,
-        var: &HashMap<usize, RuntimeVariable<'a>>,
         reference: &RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
@@ -225,7 +222,6 @@ impl VirtualMachine<'_> {
     fn eval_func_count<'a>(
         &self,
         var: &HashMap<usize, RuntimeVariable<'a>>,
-        reference: &RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         let var = var.get(&inst.params.as_ref().unwrap()[0].id).unwrap();
@@ -248,7 +244,6 @@ impl VirtualMachine<'_> {
     fn eval_func_set<'a>(
         &self,
         var: &HashMap<usize, RuntimeVariable<'a>>,
-        reference: &RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         let mut set: HashSet<&RuntimeVariableAbstractData> = HashSet::new();
@@ -278,7 +273,6 @@ impl VirtualMachine<'_> {
     fn eval_func_group_sum<'a>(
         &self,
         var: &HashMap<usize, RuntimeVariable<'a>>,
-        reference: &RuntimeRef,
         inst: &'a Instruction,
     ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
         let mut group_map_index: HashMap<&RuntimeVariableAbstractData, usize> = HashMap::new();
