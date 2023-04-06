@@ -43,11 +43,25 @@ pub struct RuntimeRef<'a> {
 
 pub struct VirtualMachine<'a> {
     insts: Vec<&'a Instruction>,
+    debug: bool,
+}
+
+#[macro_export]
+macro_rules! vm_from {
+    ($a: expr, $b: expr) => {
+        VirtualMachine::from($a, $b)
+    };
+    ($a: expr) => {
+        VirtualMachine::from($a, false)
+    };
 }
 
 impl VirtualMachine<'_> {
-    pub fn from(insts: Vec<&Instruction>) -> VirtualMachine {
-        VirtualMachine { insts: insts }
+    pub fn from(insts: Vec<&Instruction>, debug: bool) -> VirtualMachine {
+        VirtualMachine {
+            insts: insts,
+            debug,
+        }
     }
 
     pub fn run<'a>(
@@ -411,102 +425,69 @@ mod tests {
 
     use super::{RuntimeRef, RuntimeVariableAbstractData, VirtualMachine};
 
+    macro_rules! vm_test {
+        ($target:expr, $uncover:expr, $expected:expr) => {
+            let irb = IRBuilder::from($target).unwrap();
+
+            let head_inst = irb.build();
+            let insts = IRBuilder::ir_flatten(&head_inst);
+
+            let vm = vm_from!(insts);
+
+            let tindex = TitleIndex::load(DEFAULT_DUMP_PATH, DEFAULT_TITLE_INDEX_PATH).unwrap();
+            let cindex = CategoryIndex::load(DEFAULT_CATEGORY_INDEX_PATH).unwrap();
+
+            let rt_ref = RuntimeRef {
+                category_index: &cindex,
+                title_index: &tindex,
+            };
+
+            let result = vm.run(&rt_ref).unwrap();
+
+            assert_eq!($uncover(result), $expected);
+        };
+    }
+
     #[test]
     fn vm_title_load_test() {
-        let target = "count(title:contains(\"동방\"))";
-        let irb = IRBuilder::from(target).unwrap();
-
-        let head_inst = irb.build();
-        let insts = IRBuilder::ir_flatten(&head_inst);
-
-        let vm = VirtualMachine::from(insts);
-
-        let tindex = TitleIndex::load(DEFAULT_DUMP_PATH, DEFAULT_TITLE_INDEX_PATH).unwrap();
-        let cindex = CategoryIndex::load(DEFAULT_CATEGORY_INDEX_PATH).unwrap();
-
-        let rt_ref = RuntimeRef {
-            category_index: &cindex,
-            title_index: &tindex,
-        };
-
-        let result = vm.run(&rt_ref).unwrap();
-
-        assert_eq!(_uncover_integer(&result), 851);
+        vm_test!(
+            "count(title:contains(\"동방\"))",
+            |x| _uncover_integer(&x),
+            851
+        );
     }
 
     #[test]
     fn vm_array_to_set_test() {
-        let target = "set(title:contains(\"동방\"))";
-        let irb = IRBuilder::from(target).unwrap();
-
-        let head_inst = irb.build();
-        let insts = IRBuilder::ir_flatten(&head_inst);
-
-        let vm = VirtualMachine::from(insts);
-
-        let tindex = TitleIndex::load(DEFAULT_DUMP_PATH, DEFAULT_TITLE_INDEX_PATH).unwrap();
-        let cindex = CategoryIndex::load(DEFAULT_CATEGORY_INDEX_PATH).unwrap();
-
-        let rt_ref = RuntimeRef {
-            category_index: &cindex,
-            title_index: &tindex,
-        };
-
-        let result = vm.run(&rt_ref).unwrap();
-
-        assert!(match result.data {
-            RuntimeVariableAbstractData::Set(_) => true,
-            _ => false,
-        });
+        vm_test!(
+            "set(title:contains(\"동방\"))",
+            |x: RuntimeVariable| match x.data {
+                RuntimeVariableAbstractData::Set(_) => true,
+                _ => false,
+            },
+            true
+        );
     }
 
     #[test]
     fn vm_group_sum_test() {
-        let target = "group_sum(reduce(title:contains(\"동방\"), category))";
-        let irb = IRBuilder::from(target).unwrap();
-
-        let head_inst = irb.build();
-        let insts = IRBuilder::ir_flatten(&head_inst);
-
-        let vm = VirtualMachine::from(insts);
-
-        let tindex = TitleIndex::load(DEFAULT_DUMP_PATH, DEFAULT_TITLE_INDEX_PATH).unwrap();
-        let cindex = CategoryIndex::load(DEFAULT_CATEGORY_INDEX_PATH).unwrap();
-
-        let rt_ref = RuntimeRef {
-            category_index: &cindex,
-            title_index: &tindex,
-        };
-
-        let result = vm.run(&rt_ref).unwrap();
-
-        assert!(match result.data {
-            RuntimeVariableAbstractData::Array(_) => true,
-            _ => false,
-        });
+        vm_test!(
+            "group_sum(reduce(title:contains(\"동방\"), category))",
+            |x: RuntimeVariable| match x.data {
+                RuntimeVariableAbstractData::Set(_) => true,
+                _ => false,
+            },
+            true
+        );
     }
 
     #[test]
     fn vm_intercross_test() {
-        let target = "count(title:contains(\"동방\") & title:contains(\"프로젝트\") )";
-        let irb = IRBuilder::from(target).unwrap();
-
-        let head_inst = irb.build();
-        let insts = IRBuilder::ir_flatten(&head_inst);
-
-        let vm = VirtualMachine::from(insts);
-
-        let tindex = TitleIndex::load(DEFAULT_DUMP_PATH, DEFAULT_TITLE_INDEX_PATH).unwrap();
-        let cindex = CategoryIndex::load(DEFAULT_CATEGORY_INDEX_PATH).unwrap();
-
-        let rt_ref = RuntimeRef {
-            category_index: &cindex,
-            title_index: &tindex,
-        };
-
-        let result = vm.run(&rt_ref).unwrap();
-
-        assert_eq!(_uncover_integer(&result), 213);
+        vm_test!(
+            "count(title:contains(\"동방\") & title:contains(\"프로젝트\") )",
+            |x| _uncover_integer(&x),
+            213
+        );
     }
 
     fn _uncover_integer(rt_var: &RuntimeVariable) -> i64 {

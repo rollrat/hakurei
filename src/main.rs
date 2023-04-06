@@ -31,7 +31,7 @@ fn main() {
     let head_inst = irb.build();
     let insts = IRBuilder::ir_flatten(&head_inst);
 
-    let vm = VirtualMachine::from(insts);
+    let vm = vm_from!(insts);
 
     let tindex = TitleIndex::load(DEFAULT_DUMP_PATH, DEFAULT_TITLE_INDEX_PATH).unwrap();
     let cindex = CategoryIndex::load(DEFAULT_CATEGORY_INDEX_PATH).unwrap();
