@@ -150,21 +150,22 @@ set(<Array<T>>) => Set<T>
 array(<Set<T>>) => Array<T> // not yet
 group_sum(<Array<T>>) where T: Article | Category => Array<(T, Integer)>
 reduce(<Array<T>>, (T) => Array<F>) => Array<F> *flatten
+map(<Array<T>>, (T) => F) => Array<F> // not yet
+filter(<Array<T>>, (T) => bool) => Array<T> // not yet
+sort(<Array<T>>, (T) => i32) => Array<T> // not yet
+bind((T) => F, (F) => G, *, (H) => K) => K // not yet
+use_funcs()
    -> category := (<Article>) => Array<Category>
    -> select_max_len := (<Array<T> | Set<T>>) => T // not yet
    -> select_min_len := (<Array<T> | Set<T>>) => T // not yet
-map(<Array<T>>, (T) => F) => Array<F>
    -> redirect := (<Article>) => Article // not yet
    -> unwrap_tuple1 := ((F, *)) => F, // not yet
    -> unwrap_tuple2 := ((F, H, *)) => H, // not yet
-filter(<Array<T>>, (T) => bool) => Array<T>
    -> title:*(<Article>) => bool // not yet
    -> body:*(<Article>) => bool // not yet
-sort(<Array<T>>, (T) => i32) => Array<T>
-   -> array := (T, T) => i32 // not yet
-   -> tuple1 := ((F, *), (F, *)) where T: (F, *) => i32 // not yet
-   -> tuple2 := ((F, *), (F, *)) where T: (F, *) => i32 // not yet
-bind((T) => F, (F) => G, *, (H) => K) => K // not yet
+   -> cmp_array := (T, T) => i32 // not yet
+   -> cmp_tuple1 := ((F, *), (F, *)) where T: (F, *) => i32 // not yet
+   -> cmp_tuple2 := ((F, *), (F, *)) where T: (F, *) => i32 // not yet
 ```
 
 ```rs
