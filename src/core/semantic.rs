@@ -419,6 +419,18 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 None,
             )?)
         }
+        "map" => {
+            param_check_lazy_2(
+                node,
+                &SemanticType::Array(Box::new(SemanticType::None)),
+                &SemanticType::Function(SemanticFunctionType::None),
+            )?;
+
+            todo!()
+        }
+        "filter" => todo!(),
+        "sort" => todo!(),
+        "bind" => todo!(),
         _ => Err(format!("'{}' function not found!", &node.name).into()),
     };
 
