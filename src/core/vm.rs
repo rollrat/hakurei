@@ -39,6 +39,7 @@ pub struct RuntimeVariable<'a> {
 pub struct RuntimeRef<'a> {
     pub category_index: &'a CategoryIndex,
     pub title_index: &'a TitleIndex,
+    pub articles: Option<Vec<Article>>,
 }
 
 pub struct VirtualMachine<'a> {
@@ -101,6 +102,13 @@ impl VirtualMachine<'_> {
         match &inst.data.as_ref().unwrap()[..] {
             "title" | "title:contains" | "title:statswith" | "title:endswith" => {
                 self.eval_func_title(reference, inst)
+            }
+            "body:contains" | "body:menu_exists" => {
+                if reference.articles.is_none() {
+                    panic!("you must load dump if you want to use body related func!")
+                }
+
+                self.eval_func_body(reference, inst)
             }
             "count" => self.eval_func_count(var, inst),
             "set" => self.eval_func_set(var, inst),
@@ -228,6 +236,18 @@ impl VirtualMachine<'_> {
                     })
                 }
             }
+            _ => unreachable!(),
+        }
+    }
+
+    fn eval_func_body<'a>(
+        &self,
+        reference: &RuntimeRef,
+        inst: &'a Instruction,
+    ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
+        let what = inst.params.as_ref().unwrap()[0].data.as_ref().unwrap();
+
+        match &inst.data.as_ref().unwrap()[..] {
             _ => unreachable!(),
         }
     }
@@ -440,6 +460,7 @@ mod tests {
             let rt_ref = RuntimeRef {
                 category_index: &cindex,
                 title_index: &tindex,
+                articles: None,
             };
 
             let result = vm.run(&rt_ref).unwrap();

@@ -39,6 +39,7 @@ fn main() {
     let rt_ref = RuntimeRef {
         category_index: &cindex,
         title_index: &tindex,
+        articles: None,
     };
 
     let result = vm.run(&rt_ref).unwrap();

@@ -11,7 +11,20 @@ pub enum SemanticPrimitiveType {
     Category,
     Integer,
     String,
-    Function,
+    Boolean,
+}
+
+#[derive(Clone, Debug)]
+pub enum SemanticFunctionType {
+    None,
+    Category,
+    Select,
+    Redirect,
+    UnwrapTuple1,
+    UnwrapTuple2,
+    CmpArray,
+    CmpTuple1,
+    CmpTuple2,
 }
 
 #[derive(Clone, Debug)]
@@ -21,6 +34,7 @@ pub enum SemanticType {
     Array(Box<SemanticType>),
     Set(Box<SemanticType>),
     Tuple(Vec<Box<SemanticType>>),
+    Function(SemanticFunctionType),
 }
 
 impl SemanticType {
@@ -48,6 +62,7 @@ impl SemanticType {
                 }
                 _ => false,
             },
+            SemanticType::Function(_) => unreachable!(),
         }
     }
 
@@ -57,10 +72,6 @@ impl SemanticType {
             SemanticType::Primitive(e) => match other {
                 SemanticType::None => Ok(Self::None),
                 SemanticType::Primitive(p) => {
-                    if e == &SemanticPrimitiveType::Function || p == &SemanticPrimitiveType::Function {
-                        return Err(format!("Cannot merge functions!").into())
-                    }
-
                     if e == p {
                         Ok(self.clone())
                     } else {
@@ -70,10 +81,6 @@ impl SemanticType {
                 SemanticType::Array(o) => match o.as_ref() {
                     SemanticType::None => Ok(o.as_ref().clone()),
                     SemanticType::Primitive(p) => {
-                        if e == &SemanticPrimitiveType::Function || p == &SemanticPrimitiveType::Function {
-                            return Err(format!("Cannot merge functions!").into())
-                        }
-
                         if e == p {
                             Ok(other.clone())
                         } else {
@@ -85,10 +92,6 @@ impl SemanticType {
                 SemanticType::Set(o) => match o.as_ref() {
                     SemanticType::None => Ok(o.as_ref().clone()),
                     SemanticType::Primitive(p) => {
-                        if p == &SemanticPrimitiveType::Function {
-                            return Err(format!("Cannot merge functions!").into())
-                        }
-
                         if e == p {
                             Ok(other.clone())
                         } else {
@@ -98,6 +101,7 @@ impl SemanticType {
                     _ => Err(format!("To merge a primitive type and an set, the element type of the set must match the primitive type.").into()),
                 },
                 SemanticType::Tuple(_) => Err(format!("Primitive types and tuples cannot be concatenated").into()),
+                SemanticType::Function(_) => todo!(),
             },
             SemanticType::Array(e) => match other {
                 SemanticType::None => Ok(self.clone()),
@@ -130,6 +134,7 @@ impl SemanticType {
                     Err(format!("If you want to merge tuples to create an array, both mergers must have the same tuple type.").into())
                 }
             }
+            SemanticType::Function(_) => todo!(),
         }
     }
 
@@ -156,6 +161,9 @@ impl SemanticType {
             SemanticType::Tuple(_) => {
                 Err("An intercrossing subject cannot be a tuple type.".into())
             }
+            SemanticType::Function(_) => {
+                Err("An intercrossing subject cannot be a functino type.".into())
+            }
         }
     }
 }
@@ -180,10 +188,10 @@ fn visit_expr_and(node: &mut ExpressionAndNode) -> Result<SemanticType, Box<dyn 
         return Ok(l_type);
     }
 
-    let result= l_type.infer_intercross(&r_type);
+    let result = l_type.infer_intercross(&r_type);
 
     if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone()); 
+        node.semantic_type = Some(e.clone());
     }
 
     result
@@ -208,7 +216,7 @@ fn visit_expr_and_lr(node: &mut ExpressionAndRightNode) -> Result<SemanticType, 
     let result = l_type.infer_intercross(&r_type);
 
     if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone()); 
+        node.semantic_type = Some(e.clone());
     }
 
     result
@@ -230,10 +238,10 @@ fn visit_expr_or(node: &mut ExpressionOrNode) -> Result<SemanticType, Box<dyn Er
         return Ok(l_type);
     }
 
-    let result= l_type.infer_concat(&r_type);
+    let result = l_type.infer_concat(&r_type);
 
     if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone()); 
+        node.semantic_type = Some(e.clone());
     }
 
     result
@@ -258,7 +266,7 @@ fn visit_expr_or_lr(node: &mut ExpressionOrRightNode) -> Result<SemanticType, Bo
     let result = l_type.infer_concat(&r_type);
 
     if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone()); 
+        node.semantic_type = Some(e.clone());
     }
 
     result
@@ -269,7 +277,7 @@ fn visit_expr_case(node: &mut ExpressionCaseNode) -> Result<SemanticType, Box<dy
         let result = visit_expr_and(expr_and);
 
         if let Ok(e) = &result {
-            node.semantic_type = Some(e.clone()); 
+            node.semantic_type = Some(e.clone());
         }
 
         return result;
@@ -278,7 +286,7 @@ fn visit_expr_case(node: &mut ExpressionCaseNode) -> Result<SemanticType, Box<dy
     let result = visit_func(node.func.as_mut().unwrap());
 
     if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone()); 
+        node.semantic_type = Some(e.clone());
     }
 
     result
@@ -286,8 +294,7 @@ fn visit_expr_case(node: &mut ExpressionCaseNode) -> Result<SemanticType, Box<dy
 
 fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn Error>> {
     if node.is_use {
-        node.semantic_type = Some(SemanticType::Primitive(SemanticPrimitiveType::Function));
-        return Ok(SemanticType::Primitive(SemanticPrimitiveType::Function));
+        return visit_func_use(node);
     }
 
     // title:*(<String>) => [Category]
@@ -347,7 +354,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
             param_check_lazy_1(node, &SemanticType::Array(Box::new(SemanticType::None)))?;
 
             let first_param_type =
-                visit_expr_and( node.args.as_mut().unwrap().expr_and.as_mut().unwrap())?;
+                visit_expr_and(node.args.as_mut().unwrap().expr_and.as_mut().unwrap())?;
             let first_param_uncapsuled = match first_param_type {
                 SemanticType::Array(e) => e.clone(),
                 _ => panic!("unreachable"),
@@ -369,7 +376,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
             param_check_lazy_2(
                 node,
                 &SemanticType::Array(Box::new(SemanticType::None)),
-                &SemanticType::Primitive(SemanticPrimitiveType::Function),
+                &SemanticType::Function(SemanticFunctionType::None),
             )?;
 
             let first_param_type =
@@ -398,22 +405,174 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 .unwrap()
                 .func
                 .as_ref()
-                .unwrap()
-                .name;
+                .unwrap();
 
-            Ok(get_primitive_func_return_type(
-                second_param_func_name,
-                &first_param_uncapsuled,
+            let semantic_type = visit_func_use(second_param_func_name)?;
+            let func_type = match semantic_type {
+                SemanticType::Function(e) => e,
+                _ => unreachable!(),
+            };
+
+            Ok(visit_infer_func_use(
+                &func_type,
+                Some(&first_param_uncapsuled),
+                None,
             )?)
         }
         _ => Err(format!("'{}' function not found!", &node.name).into()),
     };
 
     if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone()); 
+        node.semantic_type = Some(e.clone());
     }
 
     result
+}
+
+fn visit_func_use(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Error>> {
+    let result = match &node.name[..] {
+        "category" => Ok(SemanticType::Function(SemanticFunctionType::Category)),
+        "select_min_len" | "select_max_len" => {
+            Ok(SemanticType::Function(SemanticFunctionType::Select))
+        }
+        "redirect" => Ok(SemanticType::Function(SemanticFunctionType::Redirect)),
+        "unwrap_tuple1" => Ok(SemanticType::Function(SemanticFunctionType::UnwrapTuple1)),
+        "unwrap_tuple2" => Ok(SemanticType::Function(SemanticFunctionType::UnwrapTuple2)),
+        "cmp_array" => Ok(SemanticType::Function(SemanticFunctionType::CmpArray)),
+        "cmp_tuple1" => Ok(SemanticType::Function(SemanticFunctionType::CmpTuple1)),
+        "cmp_tuple2" => Ok(SemanticType::Function(SemanticFunctionType::CmpTuple2)),
+        _ => Err(format!("'{}' function not found!", &node.name).into()),
+    };
+
+    result
+}
+
+fn visit_infer_func_use(
+    func: &SemanticFunctionType,
+    param1: Option<&SemanticType>,
+    param2: Option<&SemanticType>,
+) -> Result<SemanticType, Box<dyn Error>> {
+    match func {
+        SemanticFunctionType::None => unreachable!(),
+        SemanticFunctionType::Category => {
+            if let Some(p1) = &param1 {
+                match p1 {
+                    SemanticType::Primitive(e) => match e {
+                        SemanticPrimitiveType::Article => Ok(SemanticType::Array(Box::new(
+                            SemanticType::Primitive(SemanticPrimitiveType::Category),
+                        ))),
+                        _ => Err(format!(
+                            "'category' function's first param type must be 'Article' instead of {:?}!",
+                            p1,
+                        )
+                        .into()),
+                    },
+                    _ => Err(format!(
+                        "'category' function's first param type must be 'Article' instead of {:?}!",
+                        p1,
+                    )
+                    .into()),
+                }
+            } else {
+                Err(format!("'category' function must have one parameter").into())
+            }
+        }
+        SemanticFunctionType::Select => {
+            if let Some(p1) = &param1 {
+                match p1 {
+                    SemanticType::Array(e) => Ok(*e.clone()),
+                    SemanticType::Set(e) => Ok(*e.clone()),
+                    _ => Err(format!(
+                        "'select_*' function's first param type must be 'Article' instead of '{:?}'!",
+                        p1,
+                    )
+                    .into()),
+                }
+            } else {
+                Err(format!("'select_*' function must have one parameter").into())
+            }
+        }
+        SemanticFunctionType::Redirect => {
+            if let Some(p1) = &param1 {
+                match p1 {
+                    SemanticType::Primitive(e) => match e {
+                        SemanticPrimitiveType::Article => {
+                            Ok(SemanticType::Primitive(SemanticPrimitiveType::Article))
+                        }
+                        _ => Err(format!(
+                        "'redirect' function's first param type must be 'Article' instead of {:?}!",
+                        p1,
+                    )
+                        .into()),
+                    },
+                    _ => Err(format!(
+                        "'redirect' function's first param type must be 'Article' instead of {:?}!",
+                        p1,
+                    )
+                    .into()),
+                }
+            } else {
+                Err(format!("'redirect' function must have one parameter").into())
+            }
+        }
+        SemanticFunctionType::UnwrapTuple1 => {
+            if let Some(p1) = &param1 {
+                match p1 {
+                    SemanticType::Tuple(e) => Ok(*e[0].clone()),
+                    _ => Err(format!(
+                        "'unwrap_tuple1' function's first param type must be <Tuple> instead of {:?}!",
+                        p1,
+                    )
+                    .into()),
+                }
+            } else {
+                Err(format!("'unwrap_tuple1' function must have one parameter").into())
+            }
+        }
+        SemanticFunctionType::UnwrapTuple2 => {
+            if let Some(p1) = &param1 {
+                match p1 {
+                    SemanticType::Tuple(e) => Ok(*e[1].clone()),
+                    _ => Err(format!(
+                        "'unwrap_tuple2' function's first param type must be <Tuple> instead of {:?}!",
+                        p1,
+                    )
+                    .into()),
+                }
+            } else {
+                Err(format!("'unwrap_tuple2' function must have one parameter").into())
+            }
+        }
+        SemanticFunctionType::CmpArray => {
+            if param1.is_some() && param2.is_some() {
+                let p1 = param1.unwrap();
+                let p2 = param2.unwrap();
+
+                if p1.eq(&p2) {
+                    Ok(SemanticType::Primitive(SemanticPrimitiveType::Integer))
+                } else {
+                    Err(format!(
+                        "'cmp_array''s arguments must have same type. currently ({:?}, {:?})",
+                        p1, p2
+                    )
+                    .into())
+                }
+            } else {
+                Err(format!("'cmp_array' function must have one parameter").into())
+            }
+        }
+        SemanticFunctionType::CmpTuple1 | SemanticFunctionType::CmpTuple2 => {
+            if param1.is_some() && param2.is_some() {
+                if param1.unwrap().eq(&param2.unwrap()) {
+                    Ok(SemanticType::Primitive(SemanticPrimitiveType::Integer))
+                } else {
+                    Err(format!("'cmp_tuple1' function must have same parameters type").into())
+                }
+            } else {
+                Err(format!("'cmp_tuple1' function must have one parameter").into())
+            }
+        }
+    }
 }
 
 fn visit_args(node: &mut ArgumentsNode) -> Result<SemanticType, Box<dyn Error>> {
@@ -426,7 +585,7 @@ fn visit_args(node: &mut ArgumentsNode) -> Result<SemanticType, Box<dyn Error>> 
     });
 
     if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone()); 
+        node.semantic_type = Some(e.clone());
     }
 
     result
@@ -447,7 +606,7 @@ fn param_check_lazy_1(
                     Err(format!(
                         "The first parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
                         &node.name,
-                        target_type, 
+                        target_type,
                         visit_args(args)?
                     )
                     .into())
@@ -465,12 +624,11 @@ fn param_check_lazy_2(
     second_target_type: &SemanticType,
 ) -> Result<(), Box<dyn Error>> {
     if let Some(args_first) = &mut node.args {
-
         if !param_type_eq_generic(args_first, first_target_type)? {
             return Err(format!(
                 "The first parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
-                &node.name, 
-                first_target_type, 
+                &node.name,
+                first_target_type,
                 visit_args(args_first)?
             )
             .into());
@@ -487,7 +645,7 @@ fn param_check_lazy_2(
                             "The second parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
                             &node.name,
                             second_target_type,
-                            visit_args(args_first)?
+                            visit_args(args_second)?
                         )
                         .into())
                     } else {
@@ -538,37 +696,15 @@ fn param_type_eq_generic(
                 SemanticType::Set(_) => true,
                 _ => false,
             },
+            SemanticType::Function(_) => match target_type {
+                SemanticType::Function(_) => true,
+                _ => false,
+            },
             _ => false,
         }
     } else {
         false
     })
-}
-
-fn get_primitive_func_return_type(
-    func: &str,
-    input_type: &SemanticType,
-) -> Result<SemanticType, Box<dyn Error>> {
-    match func {
-        "category" => match input_type {
-            SemanticType::Primitive(p) => match p {
-                SemanticPrimitiveType::Article => Ok(SemanticType::Array(Box::new(
-                    SemanticType::Primitive(SemanticPrimitiveType::Category),
-                ))),
-                _ => Err(format!("The 'category' function's input must be article!").into()),
-            },
-            _ => Err(format!("The 'category' function's input must be article!").into()),
-        },
-        "select_min_len" | "select_max_len" => match input_type {
-            SemanticType::Array(e) | SemanticType::Set(e) => Ok(*e.clone()),
-            _ => Err(format!(
-                "You cannot be used as an input {:?} to function '{}'.",
-                input_type, func
-            )
-            .into()),
-        },
-        _ => Err(format!("{} function not found!", func).into()),
-    }
 }
 
 #[cfg(test)]
@@ -578,7 +714,7 @@ mod tests {
         semantic::{SemanticPrimitiveType, SemanticType},
     };
 
-    use super::{check_semantic, get_primitive_func_return_type};
+    use super::check_semantic;
 
     fn get_si() -> SemanticType {
         SemanticType::Array(Box::new(SemanticType::Set(Box::new(SemanticType::Tuple(
@@ -656,7 +792,6 @@ mod tests {
         assert!(inferred_type.eq(&target_type));
     }
 
-
     #[test]
     fn type_infer_test_4() {
         let mut p = Parser::from("set(reduce(title:contains(\"동방\"), category))");
@@ -664,7 +799,9 @@ mod tests {
 
         let inferred_type = check_semantic(&mut root).unwrap();
 
-        let target_type = SemanticType::Set(Box::new(SemanticType::Primitive(SemanticPrimitiveType::Category)));
+        let target_type = SemanticType::Set(Box::new(SemanticType::Primitive(
+            SemanticPrimitiveType::Category,
+        )));
 
         assert!(inferred_type.eq(&target_type));
     }
@@ -678,21 +815,9 @@ mod tests {
 
         let target_type = SemanticType::Array(Box::new(SemanticType::Tuple(vec![
             Box::new(SemanticType::Primitive(SemanticPrimitiveType::Category)),
-            Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer))
+            Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
         ])));
 
         assert!(inferred_type.eq(&target_type));
-    }
-
-    #[test]
-    fn get_primitive_func_return_type_test() {
-        assert!(get_primitive_func_return_type(
-            &"select_min_len",
-            &SemanticType::Array(Box::new(SemanticType::Primitive(
-                SemanticPrimitiveType::String,
-            )))
-        )
-        .unwrap()
-        .eq(&SemanticType::Primitive(SemanticPrimitiveType::String)));
     }
 }
