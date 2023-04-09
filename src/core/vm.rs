@@ -30,6 +30,51 @@ pub enum RuntimeVariableAbstractData<'a> {
     Tuple(Vec<RuntimeVariableAbstractData<'a>>),
 }
 
+macro_rules! unwrap_rv {
+    ($target_enum:ident, $target:ident, $return_type:ty) => {
+        ::paste::paste! {
+            pub fn [<$target:lower>](&self) -> Option<&$return_type> {
+                match self {
+                    $target_enum::$target(e) => Some(e),
+                    _ => None,
+                }
+            }
+            pub fn [<unwrap_ $target:lower>](&self) -> &$return_type {
+                match self {
+                    $target_enum::$target(e) => e,
+                    _ => unreachable!(),
+                }
+            }
+        }
+    };
+}
+
+macro_rules! unwrap_rvp {
+    ($target:ident, $return_type:ty) => {
+        unwrap_rv!(RuntimeVariableAbstractPrimitiveData, $target, $return_type);
+    };
+}
+
+macro_rules! unwrap_rvr {
+    ($target:ident, $return_type:ty) => {
+        unwrap_rv!(RuntimeVariableAbstractData, $target, $return_type);
+    };
+}
+
+impl<'a> RuntimeVariableAbstractPrimitiveData<'a> {
+    unwrap_rvp!(Article, Article);
+    unwrap_rvp!(Category, str);
+    unwrap_rvp!(Integer, i64);
+    unwrap_rvp!(String, String);
+}
+
+impl<'a> RuntimeVariableAbstractData<'a> {
+    unwrap_rvr!(Primitive, RuntimeVariableAbstractPrimitiveData<'a>);
+    unwrap_rvr!(Array, Box<Vec<RuntimeVariableAbstractData<'a>>>);
+    unwrap_rvr!(Set, Box<Vec<RuntimeVariableAbstractData<'a>>>);
+    unwrap_rvr!(Tuple, Vec<RuntimeVariableAbstractData<'a>>);
+}
+
 #[derive(Clone, Debug)]
 pub struct RuntimeVariable<'a> {
     pub inst: &'a Instruction,
@@ -126,14 +171,11 @@ impl VirtualMachine<'_> {
         let mut intersection_count: HashMap<&RuntimeVariableAbstractData, usize> = HashMap::new();
 
         inst.params.as_ref().unwrap().iter().for_each(|x| {
-            match &var[&x.id].data {
-                RuntimeVariableAbstractData::Array(e) => {
-                    e.as_ref().iter().for_each(|x| {
-                        *intersection_count.entry(x).or_default() += 1;
-                    });
-                }
-                _ => unreachable!(),
-            };
+            let array = &var[&x.id].data.unwrap_array();
+
+            array.iter().for_each(|x| {
+                *intersection_count.entry(x).or_default() += 1;
+            });
         });
 
         let max_count = inst.params.as_ref().unwrap().len();
@@ -158,14 +200,11 @@ impl VirtualMachine<'_> {
         let mut result: Vec<RuntimeVariableAbstractData> = Vec::new();
 
         inst.params.as_ref().unwrap().iter().for_each(|x| {
-            match &var[&x.id].data {
-                RuntimeVariableAbstractData::Array(e) => {
-                    e.as_ref().iter().for_each(|x| {
-                        result.push(x.clone());
-                    });
-                }
-                _ => unreachable!(),
-            };
+            let array = &var[&x.id].data.unwrap_array();
+
+            array.as_ref().iter().for_each(|x| {
+                result.push(x.clone());
+            });
         });
 
         Ok(RuntimeVariable {
@@ -282,20 +321,18 @@ impl VirtualMachine<'_> {
         let mut set: HashSet<&RuntimeVariableAbstractData> = HashSet::new();
         let mut result: Vec<RuntimeVariableAbstractData> = Vec::new();
 
-        match &var[&inst.params.as_ref().unwrap()[0].id].data {
-            RuntimeVariableAbstractData::Array(e) => {
-                e.iter().for_each(|x| {
-                    if !set.contains(x) {
-                        set.insert(x);
-                        // todo: this code maybe mem copy, mem allocation overhead
-                        // we must consume target runtime variable, if that variable
-                        // unused anymore
-                        result.push(x.clone());
-                    }
-                });
+        let func_id = &inst.params.as_ref().unwrap()[0].id;
+        let array = &var[func_id].data.unwrap_array();
+
+        array.iter().for_each(|x| {
+            if !set.contains(x) {
+                set.insert(x);
+                // todo: this code maybe mem copy, mem allocation overhead
+                // we must consume target runtime variable, if that variable
+                // unused anymore
+                result.push(x.clone());
             }
-            _ => unreachable!(),
-        }
+        });
 
         Ok(RuntimeVariable {
             inst,
@@ -311,61 +348,33 @@ impl VirtualMachine<'_> {
         let mut group_map_index: HashMap<&RuntimeVariableAbstractData, usize> = HashMap::new();
         let mut group_map_count: HashMap<usize, usize> = HashMap::new();
 
-        match &var[&inst.params.as_ref().unwrap()[0].id].data {
-            RuntimeVariableAbstractData::Array(e) => {
-                for (i, e) in e.iter().enumerate() {
-                    let index = group_map_index.entry(e).or_insert(i);
-                    *group_map_count.entry(*index).or_default() += 1;
-                }
-            }
-            _ => unreachable!(),
-        };
+        let func_id = &inst.params.as_ref().unwrap()[0].id;
+        let array = &var[func_id].data.unwrap_array();
+
+        for (i, e) in array.iter().enumerate() {
+            let index = group_map_index.entry(e).or_insert(i);
+            *group_map_count.entry(*index).or_default() += 1;
+        }
 
         let mut result: Vec<RuntimeVariableAbstractData> = Vec::new();
 
-        match &var[&inst.params.as_ref().unwrap()[0].id].data {
-            RuntimeVariableAbstractData::Array(e) => {
-                for (i, e) in e.iter().enumerate() {
-                    if group_map_index[e] == i {
-                        let tuple_left = e.clone();
-                        let tuple_right = RuntimeVariableAbstractData::Primitive(
-                            RuntimeVariableAbstractPrimitiveData::Integer(
-                                group_map_count[&i] as i64,
-                            ),
-                        );
+        for (i, e) in array.iter().enumerate() {
+            if group_map_index[e] == i {
+                let tuple_left = e.clone();
+                let tuple_right = RuntimeVariableAbstractData::Primitive(
+                    RuntimeVariableAbstractPrimitiveData::Integer(group_map_count[&i] as i64),
+                );
 
-                        result.push(RuntimeVariableAbstractData::Tuple(vec![
-                            tuple_left,
-                            tuple_right,
-                        ]));
-                    }
-                }
+                result.push(RuntimeVariableAbstractData::Tuple(vec![
+                    tuple_left,
+                    tuple_right,
+                ]));
             }
-            _ => unreachable!(),
         }
 
         result.sort_by(|x, y| {
-            let xx = match x {
-                RuntimeVariableAbstractData::Tuple(x) => match &x[1] {
-                    RuntimeVariableAbstractData::Primitive(e) => match e {
-                        RuntimeVariableAbstractPrimitiveData::Integer(e) => e,
-                        _ => unreachable!(),
-                    },
-                    _ => unreachable!(),
-                },
-                _ => unreachable!(),
-            };
-
-            let yy = match y {
-                RuntimeVariableAbstractData::Tuple(x) => match &x[1] {
-                    RuntimeVariableAbstractData::Primitive(e) => match e {
-                        RuntimeVariableAbstractPrimitiveData::Integer(e) => e,
-                        _ => unreachable!(),
-                    },
-                    _ => unreachable!(),
-                },
-                _ => unreachable!(),
-            };
+            let xx = x.unwrap_tuple()[1].unwrap_primitive().unwrap_integer();
+            let yy = y.unwrap_tuple()[1].unwrap_primitive().unwrap_integer();
 
             yy.cmp(&xx)
         });
@@ -390,40 +399,31 @@ impl VirtualMachine<'_> {
         {
             "category" => {
                 let p1 = &var[&inst.params.as_ref().unwrap()[0].as_ref().id];
+                let array = &p1.data.unwrap_array();
 
-                match &p1.data {
-                    RuntimeVariableAbstractData::Array(e) => {
-                        let result = e
-                            .as_ref()
-                            .iter()
-                            .filter_map(|x| match x {
-                                RuntimeVariableAbstractData::Primitive(y) => match y {
-                                    RuntimeVariableAbstractPrimitiveData::Article(article) => {
-                                        reference.title_index.get(&article.title).or(reference
-                                            .title_index
-                                            .get_no_redirect(&article.title))
-                                    }
-                                    _ => None,
-                                },
-                                _ => None,
-                            })
-                            .filter_map(|x| {
-                                Some(&reference.category_index.get(&x.title)?.get(0)?[..])
-                            })
-                            .map(|x| {
-                                RuntimeVariableAbstractData::Primitive(
-                                    RuntimeVariableAbstractPrimitiveData::Category(x),
-                                )
-                            })
-                            .collect();
+                let result = array
+                    .as_ref()
+                    .iter()
+                    .filter_map(|x| {
+                        let article = x.primitive()?.article()?;
 
-                        Ok(RuntimeVariable {
-                            inst,
-                            data: RuntimeVariableAbstractData::Array(Box::new(result)),
-                        })
-                    }
-                    _ => unreachable!(),
-                }
+                        reference
+                            .title_index
+                            .get(&article.title)
+                            .or(reference.title_index.get_no_redirect(&article.title))
+                    })
+                    .filter_map(|x| Some(&reference.category_index.get(&x.title)?.get(0)?[..]))
+                    .map(|x| {
+                        RuntimeVariableAbstractData::Primitive(
+                            RuntimeVariableAbstractPrimitiveData::Category(x),
+                        )
+                    })
+                    .collect();
+
+                Ok(RuntimeVariable {
+                    inst,
+                    data: RuntimeVariableAbstractData::Array(Box::new(result)),
+                })
             }
             "select_min_len" | "select_max_len" => todo!(),
             _ => unreachable!(),
