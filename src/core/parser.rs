@@ -20,10 +20,6 @@ pub enum NodeType {
     Arguments,
 }
 
-pub trait Node {
-    fn get_type(&self) -> NodeType;
-}
-
 #[derive(Debug)]
 pub struct CommandExpressionNode {
     pub expr_and: Box<ExpressionAndNode>,
@@ -79,54 +75,6 @@ pub struct ArgumentsNode {
     pub expr_and: Option<Box<ExpressionAndNode>>,
     pub next_args: Option<Box<ArgumentsNode>>,
     pub semantic_type: Option<SemanticType>,
-}
-
-impl Node for CommandExpressionNode {
-    fn get_type(&self) -> NodeType {
-        NodeType::CommandExpression
-    }
-}
-
-impl Node for ExpressionAndNode {
-    fn get_type(&self) -> NodeType {
-        NodeType::ExpressionAnd
-    }
-}
-
-impl Node for ExpressionAndRightNode {
-    fn get_type(&self) -> NodeType {
-        NodeType::ExpressionAndRight
-    }
-}
-
-impl Node for ExpressionOrNode {
-    fn get_type(&self) -> NodeType {
-        NodeType::ExpressionOr
-    }
-}
-
-impl Node for ExpressionOrRightNode {
-    fn get_type(&self) -> NodeType {
-        NodeType::ExpressionOrRight
-    }
-}
-
-impl Node for ExpressionCaseNode {
-    fn get_type(&self) -> NodeType {
-        NodeType::ExpressionCase
-    }
-}
-
-impl Node for FunctionExpressionNode {
-    fn get_type(&self) -> NodeType {
-        NodeType::FunctionExpression
-    }
-}
-
-impl Node for ArgumentsNode {
-    fn get_type(&self) -> NodeType {
-        NodeType::Arguments
-    }
 }
 
 impl Parser {
