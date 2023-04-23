@@ -297,15 +297,6 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
         return visit_func_use(node);
     }
 
-    // title:*(<String>) => [Category]
-    // count(<Array<T> | Set<T>>) => Integer
-    // set(<Array<T>>) => Set<T>
-    // group_sum(<Array<T>>) where T: Article | Category => Array<(T, Integer)>
-    // reduce(<Array<T>>, (T) => Array<F>) => Array<F> *flatten
-    //    -> category := (<Article>) => Array<Category>
-    // map(<Array<T>>, (T) => F) => Array<F>
-    //    -> select_max_len := (<Array<T> | Set<T>>) => T
-    //    -> select_min_len := (<Array<T> | Set<T>>) => T
     let result = match &node.name[..] {
         "title:exact" | "title:contains" | "title:startswith" | "title:endswith" => {
             param_check_lazy_1(
@@ -372,7 +363,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 _ => Err(format!("The generic reference of the first parameter Array of 'group_sum' must be a primitive type. Current generic type is '{:?}'.", *first_param_uncapsuled).into())
             }
         }
-        "reduce" => {
+        "map" => {
             param_check_lazy_2(
                 node,
                 &SemanticType::Array(Box::new(SemanticType::None)),
@@ -386,28 +377,9 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 _ => panic!("unreachable"),
             };
 
-            // so hell ...
-            let second_param_func_name = &node
-                .args
-                .as_ref()
-                .unwrap()
-                .next_args
-                .as_ref()
-                .unwrap()
-                .expr_and
-                .as_ref()
-                .unwrap()
-                .expr_or
-                .as_ref()
-                .unwrap()
-                .expr_case
-                .as_ref()
-                .unwrap()
-                .func
-                .as_ref()
-                .unwrap();
+            let second_param_func = get_second_param_func(node);
 
-            let semantic_type = visit_func_use(second_param_func_name)?;
+            let semantic_type = visit_func_use(second_param_func)?;
             let func_type = match semantic_type {
                 SemanticType::Function(e) => e,
                 _ => unreachable!(),
@@ -418,15 +390,6 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 Some(&first_param_uncapsuled),
                 None,
             )?)
-        }
-        "map" => {
-            param_check_lazy_2(
-                node,
-                &SemanticType::Array(Box::new(SemanticType::None)),
-                &SemanticType::Function(SemanticFunctionType::None),
-            )?;
-
-            todo!()
         }
         "filter" => todo!(),
         "sort" => todo!(),
@@ -439,6 +402,28 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
     }
 
     result
+}
+
+fn get_second_param_func(node: &FunctionExpressionNode) -> &FunctionExpressionNode {
+    &node
+        .args
+        .as_ref()
+        .unwrap()
+        .next_args
+        .as_ref()
+        .unwrap()
+        .expr_and
+        .as_ref()
+        .unwrap()
+        .expr_or
+        .as_ref()
+        .unwrap()
+        .expr_case
+        .as_ref()
+        .unwrap()
+        .func
+        .as_ref()
+        .unwrap()
 }
 
 fn visit_func_use(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Error>> {

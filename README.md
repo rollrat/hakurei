@@ -117,8 +117,8 @@ v4 = reduce(v2, ref("category")) # Array(Primitive(Category))
 v5 = set(v4)                     # Set(Primitive(Category))
 v6 = count(v5)                   # Primitive(Integer)
 
-4. set(reduce(title:contains("다크소울"), category) & 
-       reduce(title:contains("엘든링"), category)) & 
+4. set(reduce(title:contains("다크소울"), category) &
+       reduce(title:contains("엘든링"), category)) &
    set(reduce(title:contains("붕괴") | title:contains("원신"), category))
 v2 = title:contains("다크소울")      # Array(Primitive(Article))
 v6 = title:contains("엘든링")       # Array(Primitive(Article))
@@ -149,8 +149,8 @@ count(<Array<T> | Set<T>>) => Integer
 set(<Array<T>>) => Set<T>
 array(<Set<T>>) => Array<T> // not yet
 group_sum(<Array<T>>) where T: Article | Category => Array<(T, Integer)>
-reduce(<Array<T>>, (T) => Array<F>) => Array<F> *flatten
 map(<Array<T>>, (T) => F) => Array<F> // not yet
+flatten(<Array<T>>) => Array<F> // not yet
 filter(<Array<T>>, (T) => bool) => Array<T> // not yet
 sort(<Array<T>>, (T, T) => i32) => Array<T> // not yet
 bind((T) => F, (F) => G, *, (H) => K) => K // not yet
