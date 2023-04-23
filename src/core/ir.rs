@@ -112,80 +112,42 @@ impl IRBuilder {
     fn visit_expr_and(id_count: &mut usize, node: ExpressionAndNode) -> Instruction {
         let semantic_type = node.semantic_type.unwrap();
 
-        let l_inst = match node.expr_or {
-            Some(node) => Self::visit_expr_or(id_count, *node),
-            None => todo!(),
-        };
+        let mut params: Vec<Box<Instruction>> = Vec::new();
 
-        if let Some(node) = node.expr_and {
-            let mut params: Vec<Box<Instruction>> = Vec::new();
-            let mut iter = node;
+        for expr_or in node.expr_ors {
+            let inst = Self::visit_expr_or(id_count, *expr_or);
+            params.push(Box::new(inst));
+        }
 
-            params.push(Box::new(l_inst));
+        *id_count += 1;
 
-            loop {
-                let inst = Self::visit_expr_or(id_count, *iter.expr_or.unwrap());
-
-                params.push(Box::new(inst));
-
-                if iter.expr_and.is_none() {
-                    break;
-                }
-
-                iter = iter.expr_and.unwrap();
-            }
-
-            *id_count += 1;
-
-            Instruction {
-                id: *id_count,
-                inst_type: InstructionType::Intercross,
-                semantic_type: semantic_type,
-                data: None,
-                params: Some(params),
-            }
-        } else {
-            l_inst
+        Instruction {
+            id: *id_count,
+            inst_type: InstructionType::Intercross,
+            semantic_type: semantic_type,
+            data: None,
+            params: Some(params),
         }
     }
 
     fn visit_expr_or(id_count: &mut usize, node: ExpressionOrNode) -> Instruction {
         let semantic_type = node.semantic_type.unwrap();
 
-        let l_inst = match node.expr_case {
-            Some(node) => Self::visit_expr_case(id_count, *node),
-            None => todo!(),
-        };
+        let mut params: Vec<Box<Instruction>> = Vec::new();
 
-        if let Some(node) = node.expr_or {
-            let mut params: Vec<Box<Instruction>> = Vec::new();
-            let mut iter = node;
+        for expr_case in node.expr_cases {
+            let inst = Self::visit_expr_case(id_count, *expr_case);
+            params.push(Box::new(inst));
+        }
 
-            params.push(Box::new(l_inst));
+        *id_count += 1;
 
-            loop {
-                let inst = Self::visit_expr_case(id_count, *iter.expr_case.unwrap());
-
-                params.push(Box::new(inst));
-
-                if iter.expr_or.is_none() {
-                    break;
-                }
-
-                iter = iter.expr_or.unwrap();
-            }
-
-            *id_count += 1;
-
-            Instruction {
-                id: *id_count,
-                inst_type: InstructionType::Concat,
-                semantic_type: semantic_type,
-                data: None,
-                params: Some(params),
-            }
-        } else {
-            l_inst
+        Instruction {
+            id: *id_count,
+            inst_type: InstructionType::Concat,
+            semantic_type: semantic_type,
+            data: None,
+            params: Some(params),
         }
     }
 
@@ -210,32 +172,25 @@ impl IRBuilder {
                 data: Some(node.name),
                 params: None,
             }
-        } else if let Some(arg_node) = node.args {
+        } else {
             let mut params: Vec<Box<Instruction>> = Vec::new();
-            let mut iter = arg_node;
 
-            loop {
-                let inst = if let Some(e) = iter.value {
+            for arg in node.args {
+                let inst = if let Some(e) = arg.value {
                     *id_count += 1;
 
                     Instruction {
                         id: *id_count,
                         inst_type: InstructionType::Constant,
-                        semantic_type: iter.semantic_type.unwrap(),
+                        semantic_type: arg.semantic_type.unwrap(),
                         data: Some(e),
                         params: None,
                     }
                 } else {
-                    Self::visit_expr_and(id_count, *iter.expr_and.unwrap())
+                    Self::visit_expr_and(id_count, *arg.expr_and.unwrap())
                 };
 
                 params.push(Box::new(inst));
-
-                if iter.next_args.is_none() {
-                    break;
-                }
-
-                iter = iter.next_args.unwrap();
             }
 
             *id_count += 1;
@@ -246,16 +201,6 @@ impl IRBuilder {
                 semantic_type,
                 data: Some(node.name),
                 params: Some(params),
-            }
-        } else {
-            *id_count += 1;
-
-            Instruction {
-                id: *id_count,
-                inst_type: InstructionType::FunctionCall,
-                semantic_type,
-                data: Some(node.name),
-                params: None,
             }
         }
     }

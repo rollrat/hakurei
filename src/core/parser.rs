@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use super::{
-    semantic::SemanticType,
+    semantic::{SemanticPrimitiveType, SemanticType},
     tokenizer::{TokenType, Tokenizer},
 };
 
@@ -49,12 +49,6 @@ pub struct ExpressionCaseNode {
 pub struct FunctionExpressionNode {
     pub name: String,
     pub is_use: bool, // A function is used as an argument to another function.
-    pub args: Option<Box<ArgumentsNode>>,
-    pub semantic_type: Option<SemanticType>,
-}
-
-#[derive(Debug)]
-pub struct ArgumentsNode {
     pub args: Vec<Box<ArgumentNode>>,
     pub semantic_type: Option<SemanticType>,
 }
@@ -63,6 +57,7 @@ pub struct ArgumentsNode {
 pub struct ArgumentNode {
     pub value: Option<String>,
     pub expr_and: Option<Box<ExpressionAndNode>>,
+    pub semantic_type: Option<SemanticType>,
 }
 
 impl Parser {
@@ -159,7 +154,7 @@ impl Parser {
             return Ok(Box::new(FunctionExpressionNode {
                 name: name.content.unwrap(),
                 is_use: true,
-                args: None,
+                args: Vec::new(),
                 semantic_type: None,
             }));
         }
@@ -174,7 +169,7 @@ impl Parser {
             return Ok(Box::new(FunctionExpressionNode {
                 name: name.content.unwrap(),
                 is_use: false,
-                args: None,
+                args: Vec::new(),
                 semantic_type: None,
             }));
         }
@@ -191,12 +186,12 @@ impl Parser {
         Ok(Box::new(FunctionExpressionNode {
             name: name.content.unwrap(),
             is_use: false,
-            args: Some(args),
+            args: args,
             semantic_type: None,
         }))
     }
 
-    fn parse_args(&mut self) -> Result<Box<ArgumentsNode>, Box<dyn Error>> {
+    fn parse_args(&mut self) -> Result<Vec<Box<ArgumentNode>>, Box<dyn Error>> {
         let mut args: Vec<Box<ArgumentNode>> = Vec::new();
 
         args.push(self.parse_arg()?);
@@ -207,10 +202,7 @@ impl Parser {
             args.push(self.parse_arg()?);
         }
 
-        Ok(Box::new(ArgumentsNode {
-            semantic_type: None,
-            args,
-        }))
+        Ok(args)
     }
 
     fn parse_arg(&mut self) -> Result<Box<ArgumentNode>, Box<dyn Error>> {
@@ -222,6 +214,7 @@ impl Parser {
                 return Ok(Box::new(ArgumentNode {
                     value: Some(co.content.unwrap()),
                     expr_and: None,
+                    semantic_type: Some(SemanticType::Primitive(SemanticPrimitiveType::String)),
                 }));
             }
 
@@ -231,6 +224,7 @@ impl Parser {
             return Ok(Box::new(ArgumentNode {
                 value: Some(co.content.unwrap()),
                 expr_and: None,
+                semantic_type: Some(SemanticType::Primitive(SemanticPrimitiveType::String)),
             }));
         }
 
@@ -239,6 +233,7 @@ impl Parser {
         return Ok(Box::new(ArgumentNode {
             value: None,
             expr_and: Some(expr_and),
+            semantic_type: None,
         }));
     }
 }
@@ -263,9 +258,6 @@ mod tests {
             .as_ref()
             .unwrap()
             .clone()
-            .args
-            .as_ref()
-            .unwrap()
             .args[0]
             .value
             .as_ref()

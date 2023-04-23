@@ -226,7 +226,7 @@ impl VirtualMachine<'_> {
                 let title = reference.title_index.find_one_by(what);
 
                 if let Some(exact_title) = title {
-                    let article = reference.title_index.get(exact_title);
+                    let article = reference.title_index.get_no_redirect(exact_title);
 
                     Ok(RuntimeVariable {
                         inst,
@@ -256,12 +256,7 @@ impl VirtualMachine<'_> {
                     let articles: Vec<RuntimeVariableAbstractData> = titles
                         .iter()
                         .map(|t| {
-                            let article = reference.title_index.get(t);
-                            let article = if let Some(e) = article {
-                                e
-                            } else {
-                                reference.title_index.get_no_redirect(t).unwrap()
-                            };
+                            let article = reference.title_index.get_no_redirect(t).unwrap();
 
                             RuntimeVariableAbstractData::Primitive(
                                 RuntimeVariableAbstractPrimitiveData::Article(article),
@@ -406,17 +401,12 @@ impl VirtualMachine<'_> {
                     .iter()
                     .filter_map(|x| {
                         let article = x.primitive()?.article()?;
+                        let category_name =
+                            &reference.category_index.get(&article.title)?.get(0)?[..];
 
-                        reference
-                            .title_index
-                            .get(&article.title)
-                            .or(reference.title_index.get_no_redirect(&article.title))
-                    })
-                    .filter_map(|x| Some(&reference.category_index.get(&x.title)?.get(0)?[..]))
-                    .map(|x| {
-                        RuntimeVariableAbstractData::Primitive(
-                            RuntimeVariableAbstractPrimitiveData::Category(x),
-                        )
+                        Some(RuntimeVariableAbstractData::Primitive(
+                            RuntimeVariableAbstractPrimitiveData::Category(category_name),
+                        ))
                     })
                     .collect();
 

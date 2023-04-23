@@ -1,8 +1,8 @@
 use std::error::Error;
 
 use super::parser::{
-    ArgumentsNode, CommandExpressionNode, ExpressionAndNode, ExpressionAndRightNode,
-    ExpressionCaseNode, ExpressionOrNode, ExpressionOrRightNode, FunctionExpressionNode,
+    ArgumentNode, CommandExpressionNode, ExpressionAndNode, ExpressionCaseNode, ExpressionOrNode,
+    FunctionExpressionNode,
 };
 
 #[derive(PartialEq, Clone, Debug)]
@@ -174,103 +174,29 @@ pub fn check_semantic(root: &mut CommandExpressionNode) -> Result<SemanticType, 
 }
 
 fn visit_expr_and(node: &mut ExpressionAndNode) -> Result<SemanticType, Box<dyn Error>> {
-    let l_type = match &mut node.expr_or {
-        Some(node) => visit_expr_or(node)?,
-        None => SemanticType::None,
-    };
+    let mut return_type = visit_expr_or(&mut node.expr_ors[0])?;
 
-    let r_type = match &mut node.expr_and {
-        Some(node) => visit_expr_and_lr(node)?,
-        None => SemanticType::None,
-    };
-
-    if r_type.eq(&SemanticType::None) {
-        node.semantic_type = Some(l_type.clone());
-        return Ok(l_type);
+    for expr_or in &mut node.expr_ors.iter_mut().skip(1) {
+        let target_type = visit_expr_or(expr_or)?;
+        return_type = return_type.infer_intercross(&target_type)?;
     }
 
-    let result = l_type.infer_intercross(&r_type);
+    node.semantic_type = Some(return_type.clone());
 
-    if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone());
-    }
-
-    result
-}
-
-fn visit_expr_and_lr(node: &mut ExpressionAndRightNode) -> Result<SemanticType, Box<dyn Error>> {
-    let l_type = match &mut node.expr_or {
-        Some(node) => visit_expr_or(node)?,
-        None => SemanticType::None,
-    };
-
-    let r_type = match &mut node.expr_and {
-        Some(node) => visit_expr_and_lr(node)?,
-        None => SemanticType::None,
-    };
-
-    if r_type.eq(&SemanticType::None) {
-        node.semantic_type = Some(l_type.clone());
-        return Ok(l_type);
-    }
-
-    let result = l_type.infer_intercross(&r_type);
-
-    if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone());
-    }
-
-    result
+    Ok(return_type)
 }
 
 fn visit_expr_or(node: &mut ExpressionOrNode) -> Result<SemanticType, Box<dyn Error>> {
-    let l_type = match &mut node.expr_case {
-        Some(node) => visit_expr_case(node)?,
-        None => SemanticType::None,
-    };
+    let mut return_type = visit_expr_case(&mut node.expr_cases[0])?;
 
-    let r_type = match &mut node.expr_or {
-        Some(node) => visit_expr_or_lr(node)?,
-        None => SemanticType::None,
-    };
-
-    if r_type.eq(&SemanticType::None) {
-        node.semantic_type = Some(l_type.clone());
-        return Ok(l_type);
+    for expr_case in &mut node.expr_cases.iter_mut().skip(1) {
+        let target_type = visit_expr_case(expr_case)?;
+        return_type = return_type.infer_concat(&target_type)?;
     }
 
-    let result = l_type.infer_concat(&r_type);
+    node.semantic_type = Some(return_type.clone());
 
-    if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone());
-    }
-
-    result
-}
-
-fn visit_expr_or_lr(node: &mut ExpressionOrRightNode) -> Result<SemanticType, Box<dyn Error>> {
-    let l_type = match &mut node.expr_case {
-        Some(node) => visit_expr_case(node)?,
-        None => SemanticType::None,
-    };
-
-    let r_type = match &mut node.expr_or {
-        Some(node) => visit_expr_or_lr(node)?,
-        None => SemanticType::None,
-    };
-
-    if r_type.eq(&SemanticType::None) {
-        node.semantic_type = Some(l_type.clone());
-        return Ok(l_type);
-    }
-
-    let result = l_type.infer_concat(&r_type);
-
-    if let Ok(e) = &result {
-        node.semantic_type = Some(e.clone());
-    }
-
-    result
+    Ok(return_type)
 }
 
 fn visit_expr_case(node: &mut ExpressionCaseNode) -> Result<SemanticType, Box<dyn Error>> {
@@ -333,8 +259,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
         "set" => {
             param_check_lazy_1(node, &SemanticType::Array(Box::new(SemanticType::None)))?;
 
-            let first_param_type =
-                visit_expr_and(node.args.as_mut().unwrap().expr_and.as_mut().unwrap())?;
+            let first_param_type = visit_expr_and(node.args[0].expr_and.as_mut().unwrap())?;
             let first_param_uncapsuled = match first_param_type {
                 SemanticType::Array(e) => e.clone(),
                 _ => panic!("unreachable"),
@@ -345,8 +270,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
         "group_sum" => {
             param_check_lazy_1(node, &SemanticType::Array(Box::new(SemanticType::None)))?;
 
-            let first_param_type =
-                visit_expr_and(node.args.as_mut().unwrap().expr_and.as_mut().unwrap())?;
+            let first_param_type = visit_expr_and(node.args[0].expr_and.as_mut().unwrap())?;
             let first_param_uncapsuled = match first_param_type {
                 SemanticType::Array(e) => e.clone(),
                 _ => panic!("unreachable"),
@@ -371,8 +295,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 &SemanticType::Function(SemanticFunctionType::None),
             )?;
 
-            let first_param_type =
-                visit_expr_and(node.args.as_mut().unwrap().expr_and.as_mut().unwrap())?;
+            let first_param_type = visit_expr_and(node.args[0].expr_and.as_mut().unwrap())?;
             let first_param_uncapsuled = match first_param_type {
                 SemanticType::Array(e) => e.clone(),
                 _ => panic!("unreachable"),
@@ -398,8 +321,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 &SemanticType::Array(Box::new(SemanticType::Array(Box::new(SemanticType::None)))),
             )?;
 
-            let first_param_type =
-                visit_expr_and(node.args.as_mut().unwrap().expr_and.as_mut().unwrap())?;
+            let first_param_type = visit_expr_and(node.args[0].expr_and.as_mut().unwrap())?;
             let first_param_uncapsuled = match first_param_type {
                 SemanticType::Array(e) => e.clone(),
                 _ => panic!("unreachable"),
@@ -415,8 +337,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 &SemanticType::Function(SemanticFunctionType::None),
             )?;
 
-            let first_param_type =
-                visit_expr_and(node.args.as_mut().unwrap().expr_and.as_mut().unwrap())?;
+            let first_param_type = visit_expr_and(node.args[0].expr_and.as_mut().unwrap())?;
             let first_param_uncapsuled = match &first_param_type {
                 SemanticType::Array(e) => e.clone(),
                 _ => panic!("unreachable"),
@@ -454,22 +375,7 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
 }
 
 fn get_second_param_func(node: &FunctionExpressionNode) -> &FunctionExpressionNode {
-    &node
-        .args
-        .as_ref()
-        .unwrap()
-        .next_args
-        .as_ref()
-        .unwrap()
-        .expr_and
-        .as_ref()
-        .unwrap()
-        .expr_or
-        .as_ref()
-        .unwrap()
-        .expr_case
-        .as_ref()
-        .unwrap()
+    &node.args[1].expr_and.as_ref().unwrap().expr_ors[0].expr_cases[0]
         .func
         .as_ref()
         .unwrap()
@@ -621,7 +527,7 @@ fn visit_infer_func_use(
     }
 }
 
-fn visit_args(node: &mut ArgumentsNode) -> Result<SemanticType, Box<dyn Error>> {
+fn visit_arg(node: &mut ArgumentNode) -> Result<SemanticType, Box<dyn Error>> {
     let result = Ok(if let Some(_) = &node.value {
         SemanticType::Primitive(SemanticPrimitiveType::String)
     } else if let Some(expr_and) = &mut node.expr_and {
@@ -641,26 +547,21 @@ fn param_check_lazy_1(
     node: &mut FunctionExpressionNode,
     target_type: &SemanticType,
 ) -> Result<(), Box<dyn Error>> {
-    if let Some(args) = &mut node.args {
-        match args.next_args {
-            Some(_) => Err(format!("'{}' function must have one parameter!", &node.name).into()),
-            None => {
-                if param_type_eq_generic(args, target_type)? {
-                    args.semantic_type = Some(target_type.clone());
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "The first parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
-                        &node.name,
-                        target_type,
-                        visit_args(args)?
-                    )
-                    .into())
-                }
-            }
-        }
-    } else {
+    if node.args.len() != 1 {
         Err(format!("'{}' function must have one parameter!", &node.name).into())
+    } else {
+        if param_type_eq_generic(&mut node.args[0], target_type)? {
+            node.args[0].semantic_type = Some(target_type.clone());
+            Ok(())
+        } else {
+            Err(format!(
+                "The first parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
+                &node.name,
+                target_type,
+                visit_arg(&mut node.args[0])?
+            )
+            .into())
+        }
     }
 }
 
@@ -669,49 +570,37 @@ fn param_check_lazy_2(
     first_target_type: &SemanticType,
     second_target_type: &SemanticType,
 ) -> Result<(), Box<dyn Error>> {
-    if let Some(args_first) = &mut node.args {
-        if !param_type_eq_generic(args_first, first_target_type)? {
-            return Err(format!(
+    if node.args.len() != 2 {
+        Err(format!("'{}' function must have two parameter!", &node.name).into())
+    } else {
+        if !param_type_eq_generic(&mut node.args[0], first_target_type)? {
+            Err(format!(
                 "The first parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
                 &node.name,
                 first_target_type,
-                visit_args(args_first)?
+                visit_arg(&mut node.args[0])?
             )
-            .into());
+            .into())
+        } else if !param_type_eq_generic(&mut node.args[1], second_target_type)? {
+            Err(format!(
+                "The second parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
+                &node.name,
+                second_target_type,
+                visit_arg(&mut node.args[1])?
+            )
+            .into())
+        } else {
+            node.args[1].semantic_type = Some(second_target_type.clone());
+            Ok(())
         }
-
-        match &mut args_first.next_args {
-            Some(args_second) => match &mut args_second.next_args {
-                Some(_) => {
-                    Err(format!("'{}' function must have two parameters!", &node.name).into())
-                }
-                None => {
-                    if !param_type_eq_generic(args_second, second_target_type)? {
-                        Err(format!(
-                            "The second parameter of '{}' function must be '{:?}' type! Current type is '{:?}'.",
-                            &node.name,
-                            second_target_type,
-                            visit_args(args_second)?
-                        )
-                        .into())
-                    } else {
-                        args_second.semantic_type = Some(second_target_type.clone());
-                        Ok(())
-                    }
-                }
-            },
-            None => Err(format!("'{}' function must have two parameters!", &node.name).into()),
-        }
-    } else {
-        Err(format!("'{}' function must have two parameters!", &node.name).into())
     }
 }
 
 fn param_type_eq_generic(
-    args: &mut ArgumentsNode,
+    arg: &mut ArgumentNode,
     target_type: &SemanticType,
 ) -> Result<bool, Box<dyn Error>> {
-    Ok(if let Some(value) = &args.value {
+    Ok(if let Some(value) = &arg.value {
         match target_type {
             SemanticType::Primitive(prim_type) => match prim_type {
                 SemanticPrimitiveType::Integer => {
@@ -726,7 +615,7 @@ fn param_type_eq_generic(
             },
             _ => false,
         }
-    } else if let Some(expr_and) = &mut args.expr_and {
+    } else if let Some(expr_and) = &mut arg.expr_and {
         let l_type = visit_expr_and(expr_and)?;
 
         match l_type {
