@@ -41,11 +41,12 @@ impl SemanticType {
     fn eq(&self, other: &SemanticType) -> bool {
         match self {
             SemanticType::None => match other {
-                SemanticType::None => true,
+                SemanticType::Primitive(_) | SemanticType::None => true,
                 _ => false,
             },
             SemanticType::Primitive(e) => match other {
                 SemanticType::Primitive(o) => e == o,
+                SemanticType::None => true,
                 _ => false,
             },
             SemanticType::Array(e) => match other {
@@ -385,11 +386,26 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 _ => unreachable!(),
             };
 
-            Ok(visit_infer_func_use(
+            Ok(SemanticType::Array(Box::new(visit_infer_func_use(
                 &func_type,
                 Some(&first_param_uncapsuled),
                 None,
-            )?)
+            )?)))
+        }
+        "flatten" => {
+            param_check_lazy_1(
+                node,
+                &SemanticType::Array(Box::new(SemanticType::Array(Box::new(SemanticType::None)))),
+            )?;
+
+            let first_param_type =
+                visit_expr_and(node.args.as_mut().unwrap().expr_and.as_mut().unwrap())?;
+            let first_param_uncapsuled = match first_param_type {
+                SemanticType::Array(e) => e.clone(),
+                _ => panic!("unreachable"),
+            };
+
+            Ok(*first_param_uncapsuled)
         }
         "filter" => todo!(),
         "sort" => todo!(),
@@ -685,12 +701,12 @@ fn param_type_eq_generic(
                 SemanticType::Primitive(o) => e == *o,
                 _ => false,
             },
-            SemanticType::Array(_) => match target_type {
-                SemanticType::Array(_) => true,
+            SemanticType::Array(e) => match target_type {
+                SemanticType::Array(o) => e.eq(o),
                 _ => false,
             },
-            SemanticType::Set(_) => match target_type {
-                SemanticType::Set(_) => true,
+            SemanticType::Set(e) => match target_type {
+                SemanticType::Set(o) => e.eq(o),
                 _ => false,
             },
             SemanticType::Function(_) => match target_type {
@@ -765,7 +781,7 @@ mod tests {
 
     #[test]
     fn type_infer_test_2() {
-        let mut p = Parser::from("reduce(title:contains(\"동방\"), category)");
+        let mut p = Parser::from("flatten(map(title:contains(\"동방\"), category))");
         let mut root = p.parse().unwrap();
 
         let inferred_type = check_semantic(&mut root).unwrap();
@@ -779,7 +795,7 @@ mod tests {
 
     #[test]
     fn type_infer_test_3() {
-        let mut p = Parser::from("count(reduce(title:contains(\"동방\"), category))");
+        let mut p = Parser::from("count(flatten(map(title:contains(\"동방\"), category)))");
         let mut root = p.parse().unwrap();
 
         let inferred_type = check_semantic(&mut root).unwrap();
@@ -791,7 +807,7 @@ mod tests {
 
     #[test]
     fn type_infer_test_4() {
-        let mut p = Parser::from("set(reduce(title:contains(\"동방\"), category))");
+        let mut p = Parser::from("set(flatten(map(title:contains(\"동방\"), category)))");
         let mut root = p.parse().unwrap();
 
         let inferred_type = check_semantic(&mut root).unwrap();
@@ -805,7 +821,7 @@ mod tests {
 
     #[test]
     fn type_infer_test_5() {
-        let mut p = Parser::from("group_sum(reduce(title:contains(\"동방\"), category))");
+        let mut p = Parser::from("group_sum(flatten(map(title:contains(\"동방\"), category)))");
         let mut root = p.parse().unwrap();
 
         let inferred_type = check_semantic(&mut root).unwrap();

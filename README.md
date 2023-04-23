@@ -142,7 +142,7 @@ set(<Array<T>>) => Set<T>
 array(<Set<T>>) => Array<T> // not yet
 group_sum(<Array<T>>) where T: Article | Category => Array<(T, Integer)>
 map(<Array<T>>, (T) => F) => Array<F> // not yet
-flatten(<Array<T>>) => Array<F> // not yet
+flatten(<Array<Array<T>>>) => Array<F> // not yet
 filter(<Array<T>>, (T) => bool) => Array<T> // not yet
 sort(<Array<T>>, (T, T) => i32) => Array<T> // not yet
 bind((T) => F, (F) => G, *, (H) => K) => K // not yet
