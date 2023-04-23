@@ -35,14 +35,8 @@ Namuwiki Stream Pipeline Filter
 ```
 command       -> expr_and
 
-expr_and      -> expr_or expr_and_lr
-expr_and_lr   -> & expr_or expr_and_lr
-               | e
-
-expr_or       -> expr_case expr_or_lr
-expr_or_lr    -> | expr_case expr_or_lr
-               | e
-
+expr_and      -> expr_or (& expr_or)*
+expr_or       -> expr_case (| expr_case)*
 expr_case     -> ( expr_and )
                | func
 
@@ -52,10 +46,8 @@ func          -> name
 name          -> function_name
                | function_name:sub_name
 
-args          -> const
-               | const, args
-               | expr_and
-               | expr_and, args
+args          -> const(, args)*
+               | expr_and(, args)*
 
 function_name -> [_a-zA-Z$][_:a-zA-Z0-9$]*
 number        -> [0-9]+
