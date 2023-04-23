@@ -46,8 +46,9 @@ func          -> name
 name          -> function_name
                | function_name:sub_name
 
-args          -> const(, args)*
-               | expr_and(, args)*
+args          -> arg(, arg)*
+arg           -> const
+               | expr_and
 
 function_name -> [_a-zA-Z$][_:a-zA-Z0-9$]*
 number        -> [0-9]+

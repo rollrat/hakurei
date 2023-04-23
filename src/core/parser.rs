@@ -28,29 +28,13 @@ pub struct CommandExpressionNode {
 
 #[derive(Debug)]
 pub struct ExpressionAndNode {
-    pub expr_or: Option<Box<ExpressionOrNode>>,
-    pub expr_and: Option<Box<ExpressionAndRightNode>>,
-    pub semantic_type: Option<SemanticType>,
-}
-
-#[derive(Debug)]
-pub struct ExpressionAndRightNode {
-    pub expr_or: Option<Box<ExpressionOrNode>>,
-    pub expr_and: Option<Box<ExpressionAndRightNode>>,
+    pub expr_ors: Vec<Box<ExpressionOrNode>>,
     pub semantic_type: Option<SemanticType>,
 }
 
 #[derive(Debug)]
 pub struct ExpressionOrNode {
-    pub expr_case: Option<Box<ExpressionCaseNode>>,
-    pub expr_or: Option<Box<ExpressionOrRightNode>>,
-    pub semantic_type: Option<SemanticType>,
-}
-
-#[derive(Debug)]
-pub struct ExpressionOrRightNode {
-    pub expr_case: Option<Box<ExpressionCaseNode>>,
-    pub expr_or: Option<Box<ExpressionOrRightNode>>,
+    pub expr_cases: Vec<Box<ExpressionCaseNode>>,
     pub semantic_type: Option<SemanticType>,
 }
 
@@ -71,10 +55,14 @@ pub struct FunctionExpressionNode {
 
 #[derive(Debug)]
 pub struct ArgumentsNode {
+    pub args: Vec<Box<ArgumentNode>>,
+    pub semantic_type: Option<SemanticType>,
+}
+
+#[derive(Debug)]
+pub struct ArgumentNode {
     pub value: Option<String>,
     pub expr_and: Option<Box<ExpressionAndNode>>,
-    pub next_args: Option<Box<ArgumentsNode>>,
-    pub semantic_type: Option<SemanticType>,
 }
 
 impl Parser {
@@ -100,52 +88,40 @@ impl Parser {
     }
 
     fn parse_expr_and(&mut self) -> Result<Box<ExpressionAndNode>, Box<dyn Error>> {
+        let mut or_nodes: Vec<Box<ExpressionOrNode>> = Vec::new();
+
+        or_nodes.push(self.parse_expr_or()?);
+
+        while self.tokenizer.lookup() == TokenType::And {
+            // consume &
+            self.tokenizer.next();
+            or_nodes.push(self.parse_expr_or()?);
+        }
+
         Ok(Box::new(ExpressionAndNode {
-            expr_or: self.parse_expr_or()?,
-            expr_and: self.parse_expr_and_lr()?,
+            expr_ors: or_nodes,
             semantic_type: None,
         }))
     }
 
-    fn parse_expr_and_lr(&mut self) -> Result<Option<Box<ExpressionAndRightNode>>, Box<dyn Error>> {
-        if self.tokenizer.lookup() != TokenType::And {
-            return Ok(None);
+    fn parse_expr_or(&mut self) -> Result<Box<ExpressionOrNode>, Box<dyn Error>> {
+        let mut case_nodes: Vec<Box<ExpressionCaseNode>> = Vec::new();
+
+        case_nodes.push(self.parse_expr_case()?);
+
+        while self.tokenizer.lookup() == TokenType::Or {
+            // consume |
+            self.tokenizer.next();
+            case_nodes.push(self.parse_expr_case()?);
         }
 
-        // consume &
-        self.tokenizer.next();
-
-        Ok(Some(Box::new(ExpressionAndRightNode {
-            expr_or: self.parse_expr_or()?,
-            expr_and: self.parse_expr_and_lr()?,
+        Ok(Box::new(ExpressionOrNode {
             semantic_type: None,
-        })))
+            expr_cases: case_nodes,
+        }))
     }
 
-    fn parse_expr_or(&mut self) -> Result<Option<Box<ExpressionOrNode>>, Box<dyn Error>> {
-        Ok(Some(Box::new(ExpressionOrNode {
-            expr_case: self.parse_expr_case()?,
-            expr_or: self.parse_expr_or_lr()?,
-            semantic_type: None,
-        })))
-    }
-
-    fn parse_expr_or_lr(&mut self) -> Result<Option<Box<ExpressionOrRightNode>>, Box<dyn Error>> {
-        if self.tokenizer.lookup() != TokenType::Or {
-            return Ok(None);
-        }
-
-        // consume |
-        self.tokenizer.next();
-
-        Ok(Some(Box::new(ExpressionOrRightNode {
-            expr_case: self.parse_expr_case()?,
-            expr_or: self.parse_expr_or_lr()?,
-            semantic_type: None,
-        })))
-    }
-
-    fn parse_expr_case(&mut self) -> Result<Option<Box<ExpressionCaseNode>>, Box<dyn Error>> {
+    fn parse_expr_case(&mut self) -> Result<Box<ExpressionCaseNode>, Box<dyn Error>> {
         if self.tokenizer.lookup() == TokenType::BraceStart {
             // consume (
             self.tokenizer.next();
@@ -161,18 +137,18 @@ impl Parser {
                 return Err("expect )".into());
             }
 
-            return Ok(Some(_result));
+            return Ok(_result);
         }
 
         if self.tokenizer.lookup() != TokenType::Name {
             return Err("expect name".into());
         }
 
-        Ok(Some(Box::new(ExpressionCaseNode {
+        Ok(Box::new(ExpressionCaseNode {
             expr_and: None,
             func: Some(self.parse_func()?),
             semantic_type: None,
-        })))
+        }))
     }
 
     fn parse_func(&mut self) -> Result<Box<FunctionExpressionNode>, Box<dyn Error>> {
@@ -221,50 +197,49 @@ impl Parser {
     }
 
     fn parse_args(&mut self) -> Result<Box<ArgumentsNode>, Box<dyn Error>> {
+        let mut args: Vec<Box<ArgumentNode>> = Vec::new();
+
+        args.push(self.parse_arg()?);
+
+        while self.tokenizer.lookup() == TokenType::Comma {
+            // comsume ,
+            self.tokenizer.next();
+            args.push(self.parse_arg()?);
+        }
+
+        Ok(Box::new(ArgumentsNode {
+            semantic_type: None,
+            args,
+        }))
+    }
+
+    fn parse_arg(&mut self) -> Result<Box<ArgumentNode>, Box<dyn Error>> {
         if self.tokenizer.lookup() == TokenType::Const {
             // consume const
             let co = self.tokenizer.next();
 
             if self.tokenizer.lookup() != TokenType::Comma {
-                return Ok(Box::new(ArgumentsNode {
+                return Ok(Box::new(ArgumentNode {
                     value: Some(co.content.unwrap()),
                     expr_and: None,
-                    next_args: None,
-                    semantic_type: None,
                 }));
             }
 
             // consume ,
             self.tokenizer.next();
 
-            return Ok(Box::new(ArgumentsNode {
+            return Ok(Box::new(ArgumentNode {
                 value: Some(co.content.unwrap()),
                 expr_and: None,
-                next_args: Some(self.parse_args()?),
-                semantic_type: None,
             }));
         }
 
         let expr_and = self.parse_expr_and()?;
 
-        if self.tokenizer.lookup() != TokenType::Comma {
-            return Ok(Box::new(ArgumentsNode {
-                value: None,
-                expr_and: Some(expr_and),
-                next_args: None,
-                semantic_type: None,
-            }));
-        }
-
-        // comsume ,
-        self.tokenizer.next();
-
-        Ok(Box::new(ArgumentsNode {
+        return Ok(Box::new(ArgumentNode {
             value: None,
             expr_and: Some(expr_and),
-            next_args: Some(self.parse_args()?),
-            semantic_type: None,
-        }))
+        }));
     }
 }
 
@@ -277,27 +252,13 @@ mod tests {
         let mut p = Parser::from("title:startswith(\"abcd\")");
         let root = p.parse().unwrap();
 
-        let n = &root
-            .expr_and
-            .expr_or
-            .as_ref()
-            .unwrap()
-            .expr_case
-            .as_ref()
-            .unwrap()
+        let n = &root.expr_and.expr_ors[0].expr_cases[0]
             .func
             .as_ref()
             .unwrap()
             .name;
 
-        let s = root
-            .expr_and
-            .expr_or
-            .as_ref()
-            .unwrap()
-            .expr_case
-            .as_ref()
-            .unwrap()
+        let s = root.expr_and.expr_ors[0].expr_cases[0]
             .func
             .as_ref()
             .unwrap()
@@ -305,6 +266,7 @@ mod tests {
             .args
             .as_ref()
             .unwrap()
+            .args[0]
             .value
             .as_ref()
             .unwrap();
