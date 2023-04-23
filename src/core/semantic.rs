@@ -408,7 +408,40 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
             Ok(*first_param_uncapsuled)
         }
         "filter" => todo!(),
-        "sort" => todo!(),
+        "sort" => {
+            param_check_lazy_2(
+                node,
+                &SemanticType::Array(Box::new(SemanticType::None)),
+                &SemanticType::Function(SemanticFunctionType::None),
+            )?;
+
+            let first_param_type =
+                visit_expr_and(node.args.as_mut().unwrap().expr_and.as_mut().unwrap())?;
+            let first_param_uncapsuled = match &first_param_type {
+                SemanticType::Array(e) => e.clone(),
+                _ => panic!("unreachable"),
+            };
+
+            let second_param_func = get_second_param_func(node);
+
+            let semantic_type = visit_func_use(second_param_func)?;
+            let func_type = match semantic_type {
+                SemanticType::Function(e) => e,
+                _ => unreachable!(),
+            };
+
+            let func_ret_type = visit_infer_func_use(
+                &func_type,
+                Some(&first_param_uncapsuled),
+                Some(&first_param_uncapsuled),
+            )?;
+
+            if !func_ret_type.eq(&SemanticType::Primitive(SemanticPrimitiveType::Integer)) {
+                return Err(format!("The second parameter of sort function is must be return i32! Currently, {:?} is retuned!", func_ret_type).into());
+            }
+
+            Ok(first_param_type)
+        }
         "bind" => todo!(),
         _ => Err(format!("'{}' function not found!", &node.name).into()),
     };
@@ -571,7 +604,7 @@ fn visit_infer_func_use(
                     .into())
                 }
             } else {
-                Err(format!("'cmp_array' function must have one parameter").into())
+                Err(format!("'cmp_array' function must have two parameter").into())
             }
         }
         SemanticFunctionType::CmpTuple1 | SemanticFunctionType::CmpTuple2 => {
@@ -582,7 +615,7 @@ fn visit_infer_func_use(
                     Err(format!("'cmp_tuple1' function must have same parameters type").into())
                 }
             } else {
-                Err(format!("'cmp_tuple1' function must have one parameter").into())
+                Err(format!("'cmp_tuple1' function must have two parameter").into())
             }
         }
     }
@@ -830,6 +863,21 @@ mod tests {
             Box::new(SemanticType::Primitive(SemanticPrimitiveType::Category)),
             Box::new(SemanticType::Primitive(SemanticPrimitiveType::Integer)),
         ])));
+
+        assert!(inferred_type.eq(&target_type));
+    }
+
+    #[test]
+    fn type_infer_test_6() {
+        let mut p =
+            Parser::from("sort(flatten(map(title:contains(\"동방\"), category)), cmp_array)");
+        let mut root = p.parse().unwrap();
+
+        let inferred_type = check_semantic(&mut root).unwrap();
+
+        let target_type = SemanticType::Array(Box::new(SemanticType::Primitive(
+            SemanticPrimitiveType::Category,
+        )));
 
         assert!(inferred_type.eq(&target_type));
     }
