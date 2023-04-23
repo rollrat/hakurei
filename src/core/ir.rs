@@ -110,11 +110,16 @@ impl IRBuilder {
     }
 
     fn visit_expr_and(id_count: &mut usize, node: ExpressionAndNode) -> Instruction {
+        let mut expr_ors = node.expr_ors;
         let semantic_type = node.semantic_type.unwrap();
+
+        if expr_ors.len() == 1 {
+            return Self::visit_expr_or(id_count, *expr_ors.remove(0));
+        }
 
         let mut params: Vec<Box<Instruction>> = Vec::new();
 
-        for expr_or in node.expr_ors {
+        for expr_or in expr_ors {
             let inst = Self::visit_expr_or(id_count, *expr_or);
             params.push(Box::new(inst));
         }
@@ -131,11 +136,16 @@ impl IRBuilder {
     }
 
     fn visit_expr_or(id_count: &mut usize, node: ExpressionOrNode) -> Instruction {
+        let mut expr_cases = node.expr_cases;
         let semantic_type = node.semantic_type.unwrap();
+
+        if expr_cases.len() == 1 {
+            return Self::visit_expr_case(id_count, *expr_cases.remove(0));
+        }
 
         let mut params: Vec<Box<Instruction>> = Vec::new();
 
-        for expr_case in node.expr_cases {
+        for expr_case in expr_cases {
             let inst = Self::visit_expr_case(id_count, *expr_case);
             params.push(Box::new(inst));
         }
@@ -213,7 +223,7 @@ mod tests {
     #[test]
     fn ir_build_test() {
         // let target = "set(reduce(title:contains(\"동방\"), category))";
-        let target = "count(set(reduce(title:contains(\"동방\"), category)))";
+        let target = "count(set(flatten(map(title:contains(\"동방\"), category))))";
         // let target =
         //     "group_sum(reduce(title:startswith(\"서든\") & title:endswith(\"어택\"), category))";
         let irb = IRBuilder::from(target).unwrap();

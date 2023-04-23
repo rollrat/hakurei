@@ -301,9 +301,9 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 _ => panic!("unreachable"),
             };
 
-            let second_param_func = get_second_param_func(node);
+            let mut second_param_func = get_second_param_func(node);
 
-            let semantic_type = visit_func_use(second_param_func)?;
+            let semantic_type = visit_func_use(&mut second_param_func)?;
             let func_type = match semantic_type {
                 SemanticType::Function(e) => e,
                 _ => unreachable!(),
@@ -343,9 +343,9 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
                 _ => panic!("unreachable"),
             };
 
-            let second_param_func = get_second_param_func(node);
+            let mut second_param_func = get_second_param_func(node);
 
-            let semantic_type = visit_func_use(second_param_func)?;
+            let semantic_type = visit_func_use(&mut second_param_func)?;
             let func_type = match semantic_type {
                 SemanticType::Function(e) => e,
                 _ => unreachable!(),
@@ -374,14 +374,14 @@ fn visit_func(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn
     result
 }
 
-fn get_second_param_func(node: &FunctionExpressionNode) -> &FunctionExpressionNode {
-    &node.args[1].expr_and.as_ref().unwrap().expr_ors[0].expr_cases[0]
+fn get_second_param_func(node: &mut FunctionExpressionNode) -> &mut FunctionExpressionNode {
+    node.args[1].expr_and.as_mut().unwrap().expr_ors[0].expr_cases[0]
         .func
-        .as_ref()
+        .as_mut()
         .unwrap()
 }
 
-fn visit_func_use(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn Error>> {
+fn visit_func_use(node: &mut FunctionExpressionNode) -> Result<SemanticType, Box<dyn Error>> {
     let result = match &node.name[..] {
         "category" => Ok(SemanticType::Function(SemanticFunctionType::Category)),
         "select_min_len" | "select_max_len" => {
@@ -395,6 +395,8 @@ fn visit_func_use(node: &FunctionExpressionNode) -> Result<SemanticType, Box<dyn
         "cmp_tuple2" => Ok(SemanticType::Function(SemanticFunctionType::CmpTuple2)),
         _ => Err(format!("'{}' function not found!", &node.name).into()),
     };
+
+    node.semantic_type = Some(result.as_ref().unwrap().clone());
 
     result
 }
