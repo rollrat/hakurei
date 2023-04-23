@@ -142,8 +142,8 @@ count(<Array<T> | Set<T>>) => Integer
 set(<Array<T>>) => Set<T>
 array(<Set<T>>) => Array<T> // not yet
 group_sum(<Array<T>>) where T: Article | Category => Array<(T, Integer)>
-map(<Array<T>>, (T) => F) => Array<F> // not yet
-flatten(<Array<Array<T>>>) => Array<F> // not yet
+map(<Array<T>>, (T) => F) => Array<F>
+flatten(<Array<Array<T>>>) => Array<F>
 filter(<Array<T>>, (T) => bool) => Array<T> // not yet
 sort(<Array<T>>, (T, T) => i32) => Array<T> // not yet
 bind((T) => F, (F) => G, *, (H) => K) => K // not yet

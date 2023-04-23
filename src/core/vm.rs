@@ -158,7 +158,8 @@ impl VirtualMachine<'_> {
             "count" => self.eval_func_count(var, inst),
             "set" => self.eval_func_set(var, inst),
             "group_sum" => self.eval_func_group_sum(var, inst),
-            "reduce" => self.eval_func_reduce(var, reference, inst),
+            "map" => self.eval_func_map(var, reference, inst),
+            "flatten" => self.eval_func_flatten(var, reference, inst),
             _ => unreachable!(),
         }
     }
@@ -380,7 +381,7 @@ impl VirtualMachine<'_> {
         })
     }
 
-    fn eval_func_reduce<'a>(
+    fn eval_func_map<'a>(
         &self,
         var: &HashMap<usize, RuntimeVariable<'a>>,
         reference: &'a RuntimeRef,
@@ -396,17 +397,23 @@ impl VirtualMachine<'_> {
                 let p1 = &var[&inst.params.as_ref().unwrap()[0].as_ref().id];
                 let array = &p1.data.unwrap_array();
 
-                let result = array
+                let result: Vec<_> = array
                     .as_ref()
                     .iter()
                     .filter_map(|x| {
                         let article = x.primitive()?.article()?;
-                        let category_name =
-                            &reference.category_index.get(&article.title)?.get(0)?[..];
+                        let category_name = &reference.category_index.get(&article.title)?;
 
-                        Some(RuntimeVariableAbstractData::Primitive(
-                            RuntimeVariableAbstractPrimitiveData::Category(category_name),
-                        ))
+                        Some(RuntimeVariableAbstractData::Array(Box::new(
+                            category_name
+                                .into_iter()
+                                .map(|x| {
+                                    RuntimeVariableAbstractData::Primitive(
+                                        RuntimeVariableAbstractPrimitiveData::Category(x),
+                                    )
+                                })
+                                .collect::<Vec<_>>(),
+                        )))
                     })
                     .collect();
 
@@ -416,8 +423,61 @@ impl VirtualMachine<'_> {
                 })
             }
             "select_min_len" | "select_max_len" => todo!(),
+            "redirect" => {
+                let p1 = &var[&inst.params.as_ref().unwrap()[0].as_ref().id];
+                let array = &p1.data.unwrap_array();
+
+                let result: Vec<_> = array
+                    .as_ref()
+                    .iter()
+                    .filter_map(|x| {
+                        let article = x.primitive()?.article()?;
+                        let article = if article.is_redirect() {
+                            reference
+                                .title_index
+                                .get(&article.title)
+                                .unwrap_or(article.clone())
+                        } else {
+                            article.clone()
+                        };
+
+                        Some(RuntimeVariableAbstractData::Primitive(
+                            RuntimeVariableAbstractPrimitiveData::Article(article),
+                        ))
+                    })
+                    .collect();
+
+                Ok(RuntimeVariable {
+                    inst,
+                    data: RuntimeVariableAbstractData::Array(Box::new(result)),
+                })
+            }
+            "sort" => todo!(),
             _ => unreachable!(),
         }
+    }
+
+    fn eval_func_flatten<'a>(
+        &self,
+        var: &HashMap<usize, RuntimeVariable<'a>>,
+        reference: &'a RuntimeRef,
+        inst: &'a Instruction,
+    ) -> Result<RuntimeVariable<'a>, Box<dyn Error>> {
+        let var = var.get(&inst.params.as_ref().unwrap()[0].id).unwrap();
+
+        let result: Vec<RuntimeVariableAbstractData> = match &var.data {
+            RuntimeVariableAbstractData::Array(e) => (*e)
+                .iter()
+                .map(|x| x.unwrap_array().iter().map(|y| y.clone()))
+                .flatten()
+                .collect(),
+            _ => unreachable!(),
+        };
+
+        Ok(RuntimeVariable {
+            inst,
+            data: RuntimeVariableAbstractData::Array(Box::new(result)),
+        })
     }
 }
 
@@ -483,9 +543,9 @@ mod tests {
     #[test]
     fn vm_group_sum_test() {
         vm_test!(
-            "group_sum(reduce(title:contains(\"동방\"), category))",
+            "group_sum(flatten(map(map(title:contains(\"동방\"), redirect), category)))",
             |x: RuntimeVariable| match x.data {
-                RuntimeVariableAbstractData::Set(_) => true,
+                RuntimeVariableAbstractData::Array(_) => true,
                 _ => false,
             },
             true
